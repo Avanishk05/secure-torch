@@ -66,7 +66,7 @@ jobs:
           # so pip install -e . alone leaves safetensors/numpy/packaging missing).
           pip install safetensors>=0.4.0 numpy>=1.22 packaging>=23.0 torch>=2.0
           pip install -e .
-          pip install pytest pytest-cov cryptography huggingface_hub
+          pip install pytest pytest-cov pytest-timeout cryptography huggingface_hub
 
       - name: Run unit tests
         run: pytest tests/unit/ tests/cve/ -v --tb=short --cov=secure_torch --cov-report=xml
