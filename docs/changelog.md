@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `secure_torch.patch_huggingface(**security_kwargs)` and `secure_torch.unpatch_huggingface()` for Hugging Face download interception and validation.
+- Integration tests for patch behavior in `tests/integration/test_huggingface.py` (unsafe artifacts blocked with `UnsafeModelError`).
+- Rich-enhanced `secure-torch audit` console rendering (`_print_rich_report`) with structured threat, provenance, and SBOM sections.
+
 ## 0.1.0 (2026-02-18)
 
 ### Added

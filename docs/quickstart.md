@@ -90,6 +90,33 @@ torch.hub.load("pytorch/vision", "resnet50")      # remote convenience passthrou
 torch.from_pretrained("bert-base-uncased")        # remote convenience passthrough
 ```
 
-`torch.hub.load` and `torch.from_pretrained` currently do **not** enforce secure-torch security checks for remote fetches.
+`torch.hub.load` and direct `torch.from_pretrained` calls currently do **not** enforce secure-torch security checks for remote fetches.
 If you pass security args (`require_signature`, `trusted_publishers`, `audit_only`, `max_threat_score`, `sandbox`, `sbom_*`, `bundle_path`, `pubkey_path`) they raise `SecurityError`.
 Use remote APIs only for convenience, or download model artifacts first and run `torch.load(local_path, ...)` for enforced controls.
+
+## Hugging Face integration (patch mode)
+
+If your stack uses `transformers` / `huggingface_hub`, you can apply a global patch so downloads
+are validated before returning to callers:
+
+```python
+import secure_torch
+from transformers import AutoModel
+
+secure_torch.patch_huggingface(max_threat_score=20)
+model = AutoModel.from_pretrained("gpt2")
+```
+
+This intercepts `huggingface_hub.file_download.hf_hub_download` and runs the secure-torch
+validation pipeline on model files. If a file violates policy, it raises `UnsafeModelError`.
+Call `secure_torch.unpatch_huggingface()` to restore original behavior.
+
+## Audit CLI
+
+```bash
+# Rich console report when rich is installed; plain summary fallback otherwise
+secure-torch audit model.pt
+
+# JSON output for pipelines
+secure-torch audit model.pt --json
+```

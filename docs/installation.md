@@ -27,6 +27,11 @@ pip install secure-torch[crypto]
 pip install secure-torch[all]
 ```
 
+```bash
+# Optional: rich-rendered CLI audit reports
+pip install rich
+```
+
 ## Development install
 
 ```bash

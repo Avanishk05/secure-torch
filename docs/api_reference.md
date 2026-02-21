@@ -93,7 +93,36 @@ If security args are supplied (`require_signature`, `trusted_publishers`, `audit
 `max_threat_score`, `sandbox`, `sbom_*`, `bundle_path`, `pubkey_path`), this call raises
 `SecurityError`.
 
-For enforced trust checks, download artifacts locally first and use `secure_torch.load()`.
+For enforced trust checks, either:
+- Download artifacts locally first and use `secure_torch.load()`.
+- Or call `secure_torch.patch_huggingface(...)` before your `transformers` workflow.
+
+---
+
+## `secure_torch.patch_huggingface`
+
+```python
+secure_torch.patch_huggingface(**security_kwargs) -> None
+```
+
+Monkey-patches `huggingface_hub.file_download.hf_hub_download`.
+When a downloaded file looks like a model artifact, secure-torch runs format detection,
+validators, signature checks, SBOM policy evaluation, and trust-policy enforcement before
+returning the local file path.
+
+`security_kwargs` uses the same security controls as `secure_torch.load`
+(`require_signature`, `trusted_publishers`, `audit_only`, `max_threat_score`, `sbom_*`,
+`bundle_path`, `pubkey_path`, `policy_context`).
+
+---
+
+## `secure_torch.unpatch_huggingface`
+
+```python
+secure_torch.unpatch_huggingface() -> None
+```
+
+Restores the original `huggingface_hub.file_download.hf_hub_download`.
 
 ---
 

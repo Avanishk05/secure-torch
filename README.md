@@ -102,9 +102,40 @@ torch.from_pretrained("bert-base-uncased")        # remote convenience passthrou
 torch.save(model, "model.pt")
 ```
 
-`torch.hub.load` and `torch.from_pretrained` do **not** currently enforce secure-torch security checks for remote fetches.
+`torch.hub.load` and direct `torch.from_pretrained` calls do **not** currently enforce secure-torch security checks for remote fetches.
 Passing security arguments (`require_signature`, `trusted_publishers`, `audit_only`, `max_threat_score`, `sandbox`, `sbom_*`, `bundle_path`, `pubkey_path`) raises `SecurityError`.
-For enforced security controls, download artifacts first and call `torch.load(local_path, ...)`.
+For enforced security controls, download artifacts first and call `torch.load(local_path, ...)`, or use `secure_torch.patch_huggingface(...)` for Hugging Face download interception.
+
+### Hugging Face integration (automatic download scanning)
+
+```python
+import secure_torch
+from transformers import AutoModel
+
+# Global monkey-patch: intercept hf_hub_download and validate model files.
+secure_torch.patch_huggingface(require_signature=False, max_threat_score=20)
+
+model = AutoModel.from_pretrained("gpt2")
+
+# Optional cleanup when done.
+secure_torch.unpatch_huggingface()
+```
+
+`patch_huggingface(...)` hooks `huggingface_hub.file_download.hf_hub_download`.
+For model-like files (`.pt`, `.pth`, `.bin`, `.safetensors`, `.onnx`, `.h5`, `.keras`),
+secure-torch runs format detection, validators, signature/publisher checks, and threat policy
+evaluation before returning the downloaded file path. Unsafe artifacts are blocked with
+`UnsafeModelError`.
+
+### Interactive CLI audit
+
+```bash
+# Styled report (rich-enabled when available)
+secure-torch audit model.pt
+
+# Machine-readable output
+secure-torch audit model.pt --json
+```
 
 ---
 

@@ -239,6 +239,23 @@ secure-torch security enforcement currently applies to local artifacts loaded vi
 for remote fetches. They do not enforce signature/publisher/threat-policy checks on remote
 artifacts, and passing security args raises `SecurityError`.
 
+#### Hugging Face patch mode (enforced download-time checks)
+
+For `transformers` / `huggingface_hub` workflows, secure-torch also provides a monkey-patch
+integration:
+
+```python
+import secure_torch
+from transformers import AutoModel
+
+secure_torch.patch_huggingface(max_threat_score=20, require_signature=False)
+model = AutoModel.from_pretrained("gpt2")
+```
+
+This intercepts `huggingface_hub.file_download.hf_hub_download` and runs secure-torch
+validators and policy checks before returning the downloaded local file path.
+If policy fails, it raises `UnsafeModelError`.
+
 #### Recommended pattern (download, then enforce)
 
 ```python
