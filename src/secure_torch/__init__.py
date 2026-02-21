@@ -181,7 +181,7 @@ def from_pretrained(
     try:
         from transformers import AutoModel
 
-        return AutoModel.from_pretrained(model_name_or_path, **kwargs)
+        return AutoModel.from_pretrained(model_name_or_path, **kwargs)  # nosec B615 -- intentional passthrough; security enforced via patch_huggingface()
     except ImportError:
         raise ImportError(
             "transformers is required for from_pretrained(). pip install transformers"

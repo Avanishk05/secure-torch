@@ -306,7 +306,7 @@ def _direct_load(
         if _jit_mode:
             return torch.jit.load(f, map_location=map_location)
 
-        return torch.load(
+        return torch.load(  # nosec B614 -- weights_only= is set; secure_torch has already validated opcodes
             f,
             map_location=map_location,
             weights_only=weights_only,
