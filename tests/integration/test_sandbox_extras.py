@@ -10,6 +10,7 @@ Covers:
 - Subprocess timeout scenario (mocked)
 - Path mismatch in sandbox response (mocked)
 """
+
 from __future__ import annotations
 
 import json
@@ -25,7 +26,6 @@ from secure_torch.models import ModelFormat
 
 
 class TestRestrictedEnv:
-
     def test_http_proxy_stripped(self, monkeypatch):
         monkeypatch.setenv("HTTP_PROXY", "http://proxy.evil.com:3128")
         sandbox = SubprocessSandbox()
@@ -67,7 +67,6 @@ class TestRestrictedEnv:
 
 
 class TestParseJsonResult:
-
     def test_empty_stdout_raises(self):
         sandbox = SubprocessSandbox()
         with pytest.raises(SandboxError, match="no result"):
@@ -87,7 +86,7 @@ class TestParseJsonResult:
         """JSON response must be an object, not array."""
         sandbox = SubprocessSandbox()
         with pytest.raises(SandboxError, match="JSON object"):
-            sandbox._parse_json_result(b'[1, 2, 3]\n')
+            sandbox._parse_json_result(b"[1, 2, 3]\n")
 
     def test_valid_json_parsed(self):
         sandbox = SubprocessSandbox()
@@ -104,7 +103,6 @@ class TestParseJsonResult:
 
 
 class TestLoadTransferArtifact:
-
     def test_unknown_transfer_format_raises(self):
         sandbox = SubprocessSandbox()
         with pytest.raises(SandboxError, match="Unknown sandbox transfer format"):
@@ -126,6 +124,7 @@ class TestSandboxLoadMocked:
     def test_sandbox_timeout_raises_sandbox_error(self, tmp_path):
         """A subprocess.TimeoutExpired must be caught and re-raised as SandboxError."""
         import subprocess
+
         model_path = self._make_safetensors_file(tmp_path)
         sandbox = SubprocessSandbox()
 
@@ -156,8 +155,13 @@ class TestSandboxLoadMocked:
         sandbox = SubprocessSandbox()
 
         # Return ok=True but a different path than what we created
-        payload = json.dumps({"ok": True, "transfer": "safetensors",
-                               "path": "/completely/different/path.safetensors"}).encode()
+        payload = json.dumps(
+            {
+                "ok": True,
+                "transfer": "safetensors",
+                "path": "/completely/different/path.safetensors",
+            }
+        ).encode()
         mock_proc = MagicMock()
         mock_proc.returncode = 0
         mock_proc.communicate.return_value = (payload + b"\n", b"")

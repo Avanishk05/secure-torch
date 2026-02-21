@@ -351,7 +351,9 @@ def _direct_load(
     raise ValueError(f"Unsupported format: {fmt}")
 
 
-def _sandbox_load(path: Path, fmt: ModelFormat, map_location=None, weights_only: bool = True) -> Any:
+def _sandbox_load(
+    path: Path, fmt: ModelFormat, map_location=None, weights_only: bool = True
+) -> Any:
     """Load model inside a restricted subprocess."""
     from secure_torch.sandbox.subprocess_sandbox import SubprocessSandbox
 

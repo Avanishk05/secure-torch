@@ -36,9 +36,7 @@ from typing import Any, Dict, List, Optional, Tuple
 # ---------------------------------------------------------------------------
 logger = logging.getLogger("secure_model_loader")
 handler = logging.StreamHandler()
-handler.setFormatter(
-    logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-)
+handler.setFormatter(logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
 logger.addHandler(handler)
 logger.setLevel(logging.INFO)
 
@@ -48,7 +46,7 @@ logger.setLevel(logging.INFO)
 # ---------------------------------------------------------------------------
 class ModelFormat(Enum):
     SAFETENSORS = "safetensors"
-    PICKLE = "pickle"     # .pt / .pth / .bin
+    PICKLE = "pickle"  # .pt / .pth / .bin
     ONNX = "onnx"
     UNKNOWN = "unknown"
 
@@ -62,9 +60,9 @@ class ThreatLevel(Enum):
 
 
 class SandboxPolicy(Enum):
-    NONE = auto()         # No sandbox (testing only)
-    STRICT = auto()       # seccomp: read-only FS, no network, no exec
-    PERMISSIVE = auto()   # seccomp: block exec + ptrace only
+    NONE = auto()  # No sandbox (testing only)
+    STRICT = auto()  # seccomp: read-only FS, no network, no exec
+    PERMISSIVE = auto()  # seccomp: block exec + ptrace only
 
 
 # ---------------------------------------------------------------------------
@@ -73,6 +71,7 @@ class SandboxPolicy(Enum):
 @dataclass
 class SBOMRecord:
     """Parsed SPDX AI Profile fields."""
+
     spdxVersion: str = ""
     name: str = ""
     datasetName: str = ""
@@ -91,6 +90,7 @@ class SBOMRecord:
 @dataclass
 class ProvenanceRecord:
     """Sigstore / in-toto attestation result."""
+
     verified: bool = False
     signer_identity: str = ""
     issuer: str = ""
@@ -103,10 +103,11 @@ class ProvenanceRecord:
 @dataclass
 class ValidationReport:
     """Aggregated result from all validation passes."""
+
     path: str = ""
     format: ModelFormat = ModelFormat.UNKNOWN
     threat_level: ThreatLevel = ThreatLevel.SAFE
-    threat_score: int = 0           # 0-100
+    threat_score: int = 0  # 0-100
     findings: List[str] = field(default_factory=list)
     warnings: List[str] = field(default_factory=list)
     sbom: Optional[SBOMRecord] = None
@@ -146,7 +147,7 @@ def _detect_format(path: Path) -> ModelFormat:
         with open(path, "rb") as f:
             magic = f.read(8)
         if magic[:2] == b"PK":
-            return ModelFormat.PICKLE   # PyTorch zip
+            return ModelFormat.PICKLE  # PyTorch zip
         if magic[:6] == b"\x80\x05\x95" or magic[:2] == b"\x80\x02":
             return ModelFormat.PICKLE
         if b"onnx" in magic or magic[:4] == b"\x08\x01":
@@ -166,14 +167,29 @@ DANGEROUS_PICKLE_OPCODES = {
 }
 
 DANGEROUS_MODULES = {
-    "os", "subprocess", "sys", "builtins", "importlib",
-    "socket", "ctypes", "shutil", "pathlib", "eval",
-    "__builtin__", "commands", "popen2",
+    "os",
+    "subprocess",
+    "sys",
+    "builtins",
+    "importlib",
+    "socket",
+    "ctypes",
+    "shutil",
+    "pathlib",
+    "eval",
+    "__builtin__",
+    "commands",
+    "popen2",
 }
 
 KNOWN_SAFE_MODULES = {
-    "torch", "numpy", "collections", "OrderedDict",
-    "_codecs", "torch._utils", "torch.storage",
+    "torch",
+    "numpy",
+    "collections",
+    "OrderedDict",
+    "_codecs",
+    "torch._utils",
+    "torch.storage",
 }
 
 
@@ -195,17 +211,13 @@ def _scan_pickle_opcodes(data: bytes) -> Tuple[List[str], int]:
             end2 = data.find(b"\n", end1 + 1) if end1 != -1 else -1
             if end1 != -1 and end2 != -1:
                 module = data[i:end1].decode("utf-8", errors="replace")
-                attr = data[end1 + 1:end2].decode("utf-8", errors="replace")
+                attr = data[end1 + 1 : end2].decode("utf-8", errors="replace")
                 i = end2 + 1
                 if any(m in module for m in DANGEROUS_MODULES):
-                    findings.append(
-                        f"[CRITICAL] Dangerous GLOBAL opcode: {module}.{attr}"
-                    )
+                    findings.append(f"[CRITICAL] Dangerous GLOBAL opcode: {module}.{attr}")
                     score += 40
                 elif not any(s in module for s in KNOWN_SAFE_MODULES):
-                    findings.append(
-                        f"[MEDIUM] Unknown module in GLOBAL: {module}.{attr}"
-                    )
+                    findings.append(f"[MEDIUM] Unknown module in GLOBAL: {module}.{attr}")
                     score += 10
             else:
                 break
@@ -249,14 +261,11 @@ def _validate_safetensors(path: Path) -> Tuple[Dict, List[str], int]:
         # Inspect metadata for injected code
         for k, v in metadata.items():
             if any(kw in str(v) for kw in ["eval(", "exec(", "import ", "os.system"]):
-                findings.append(
-                    f"[CRITICAL] Code-like string in metadata key '{k}': {v[:80]}"
-                )
+                findings.append(f"[CRITICAL] Code-like string in metadata key '{k}': {v[:80]}")
                 score += 50
             if len(str(v)) > 4096:
                 findings.append(
-                    f"[MEDIUM] Unusually long metadata value for key '{k}' "
-                    f"({len(str(v))} chars)"
+                    f"[MEDIUM] Unusually long metadata value for key '{k}' ({len(str(v))} chars)"
                 )
                 score += 5
         # Validate tensor descriptors
@@ -270,9 +279,7 @@ def _validate_safetensors(path: Path) -> Tuple[Dict, List[str], int]:
             required = {"dtype", "shape", "data_offsets"}
             missing = required - set(desc.keys())
             if missing:
-                findings.append(
-                    f"[MEDIUM] Tensor '{name}' missing fields: {missing}"
-                )
+                findings.append(f"[MEDIUM] Tensor '{name}' missing fields: {missing}")
                 score += 8
     return metadata, findings, score
 
@@ -286,34 +293,30 @@ def _validate_onnx(path: Path) -> Tuple[Dict, List[str], int]:
     metadata: Dict[str, Any] = {}
     try:
         import onnx  # type: ignore
+
         model = onnx.load(str(path))
         metadata["ir_version"] = model.ir_version
-        metadata["opset"] = [
-            {"domain": o.domain, "version": o.version}
-            for o in model.opset_import
-        ]
+        metadata["opset"] = [{"domain": o.domain, "version": o.version} for o in model.opset_import]
         metadata["producer_name"] = model.producer_name
         metadata["producer_version"] = model.producer_version
         metadata["model_version"] = model.model_version
         metadata["doc_string"] = model.doc_string[:256]
         # Check for custom ops (can embed native code via shared libs)
         custom_domains = [
-            o.domain for o in model.opset_import
+            o.domain
+            for o in model.opset_import
             if o.domain not in ("", "ai.onnx", "ai.onnx.ml", "ai.onnx.preview.training")
         ]
         if custom_domains:
             findings.append(
-                f"[HIGH] Custom ONNX op domains present (may load native libs): "
-                f"{custom_domains}"
+                f"[HIGH] Custom ONNX op domains present (may load native libs): {custom_domains}"
             )
             score += 30
         # Check external data references
         for node in model.graph.node:
             for attr in node.attribute:
                 if attr.type == 8:  # GRAPH type – can encode arbitrary subgraphs
-                    findings.append(
-                        f"[MEDIUM] Node '{node.name}' contains nested GRAPH attribute"
-                    )
+                    findings.append(f"[MEDIUM] Node '{node.name}' contains nested GRAPH attribute")
                     score += 10
         try:
             onnx.checker.check_model(model)
@@ -398,7 +401,7 @@ def _verify_provenance(
     # Try Python sigstore SDK first
     try:
         from sigstore.verify import Verifier  # type: ignore
-        from sigstore.models import Bundle     # type: ignore
+        from sigstore.models import Bundle  # type: ignore
 
         if bundle_path is None:
             bundle_path = model_path.with_suffix(model_path.suffix + ".sigstore")
@@ -438,13 +441,17 @@ def _verify_provenance(
         )
         return rec
 
-    bundle_arg = str(bundle_path) if bundle_path else str(
-        model_path.with_suffix(model_path.suffix + ".sigstore")
+    bundle_arg = (
+        str(bundle_path)
+        if bundle_path
+        else str(model_path.with_suffix(model_path.suffix + ".sigstore"))
     )
     try:
         result = subprocess.run(
             [cosign, "verify-blob", "--bundle", bundle_arg, str(model_path)],
-            capture_output=True, text=True, timeout=30
+            capture_output=True,
+            text=True,
+            timeout=30,
         )
         if result.returncode == 0:
             rec.verified = True
@@ -475,23 +482,88 @@ SECCOMP_MODE_FILTER = 2
 # futex, clock_gettime, munmap, fstat, lseek – blocks exec* and socket syscalls.
 # Generated offline with libseccomp; embedded as literal BPF bytecode.
 # This is a simplified demonstration filter.
-_SECCOMP_STRICT_BPF = bytes([
-    # load arch
-    0x20, 0x00, 0x00, 0x00, 0x04, 0x00, 0x00, 0x00,
-    # compare AUDIT_ARCH_X86_64 (0xc000003e)
-    0x15, 0x00, 0x00, 0x09, 0x3e, 0x00, 0x00, 0xc0,
-    # kill if arch mismatch
-    0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x00,
-    # load syscall nr
-    0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    # allow read(0), write(1), mmap(9), exit(60), exit_group(231)
-    0x15, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,  # read
-    0x06, 0x00, 0x00, 0x00, 0x7f, 0x00, 0x00, 0x00,  # ALLOW
-    0x15, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00,  # write
-    0x06, 0x00, 0x00, 0x00, 0x7f, 0x00, 0x00, 0x00,
-    # default: kill
-    0x06, 0x00, 0x00, 0x00, 0x00, 0x00, 0x05, 0x00,
-])
+_SECCOMP_STRICT_BPF = bytes(
+    [
+        # load arch
+        0x20,
+        0x00,
+        0x00,
+        0x00,
+        0x04,
+        0x00,
+        0x00,
+        0x00,
+        # compare AUDIT_ARCH_X86_64 (0xc000003e)
+        0x15,
+        0x00,
+        0x00,
+        0x09,
+        0x3E,
+        0x00,
+        0x00,
+        0xC0,
+        # kill if arch mismatch
+        0x06,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x05,
+        0x00,
+        # load syscall nr
+        0x20,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        # allow read(0), write(1), mmap(9), exit(60), exit_group(231)
+        0x15,
+        0x00,
+        0x01,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,  # read
+        0x06,
+        0x00,
+        0x00,
+        0x00,
+        0x7F,
+        0x00,
+        0x00,
+        0x00,  # ALLOW
+        0x15,
+        0x00,
+        0x01,
+        0x00,
+        0x01,
+        0x00,
+        0x00,
+        0x00,  # write
+        0x06,
+        0x00,
+        0x00,
+        0x00,
+        0x7F,
+        0x00,
+        0x00,
+        0x00,
+        # default: kill
+        0x06,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x00,
+        0x05,
+        0x00,
+    ]
+)
 
 
 class sock_fprog(ctypes.Structure):
@@ -543,6 +615,7 @@ class AuditLog:
 
     def record(self, event: str, details: Dict) -> None:
         import datetime
+
         entry = {
             "timestamp": datetime.datetime.utcnow().isoformat() + "Z",
             "event": event,
@@ -620,12 +693,15 @@ class SecureModelLoader:
         report.sha256 = _sha256_file(path)
         report.format = _detect_format(path)
 
-        self.audit.record("VALIDATE_START", {
-            "path": str(path),
-            "format": report.format.value,
-            "sha256": report.sha256,
-            "size_bytes": report.size_bytes,
-        })
+        self.audit.record(
+            "VALIDATE_START",
+            {
+                "path": str(path),
+                "format": report.format.value,
+                "sha256": report.sha256,
+                "size_bytes": report.size_bytes,
+            },
+        )
 
         total_score = 0
 
@@ -650,9 +726,7 @@ class SecureModelLoader:
             total_score += score
 
         else:
-            report.findings.append(
-                "[MEDIUM] Unknown format; cannot perform deep static analysis"
-            )
+            report.findings.append("[MEDIUM] Unknown format; cannot perform deep static analysis")
             total_score += 15
 
         # ---- SBOM validation ----
@@ -666,7 +740,9 @@ class SecureModelLoader:
                 report.findings.append("[HIGH] SBOM required but not found")
                 total_score += 20
             else:
-                report.warnings.append("No SBOM found; supply an SPDX AI Profile document for full provenance")
+                report.warnings.append(
+                    "No SBOM found; supply an SPDX AI Profile document for full provenance"
+                )
 
         # ---- Provenance / Sigstore ----
         prov = _verify_provenance(
@@ -698,13 +774,16 @@ class SecureModelLoader:
 
         report.load_allowed = report.threat_score <= self.max_threat_score
 
-        self.audit.record("VALIDATE_COMPLETE", {
-            "path": str(path),
-            "threat_level": report.threat_level.value,
-            "threat_score": report.threat_score,
-            "load_allowed": report.load_allowed,
-            "findings": len(report.findings),
-        })
+        self.audit.record(
+            "VALIDATE_COMPLETE",
+            {
+                "path": str(path),
+                "threat_level": report.threat_level.value,
+                "threat_score": report.threat_score,
+                "load_allowed": report.load_allowed,
+                "findings": len(report.findings),
+            },
+        )
 
         return report
 
@@ -725,15 +804,17 @@ class SecureModelLoader:
         report = self.validate(model_path, sbom_path, bundle_path)
 
         if not report.load_allowed and not force:
-            self.audit.record("LOAD_BLOCKED", {
-                "path": str(model_path),
-                "threat_score": report.threat_score,
-                "findings": report.findings,
-            })
+            self.audit.record(
+                "LOAD_BLOCKED",
+                {
+                    "path": str(model_path),
+                    "threat_score": report.threat_score,
+                    "findings": report.findings,
+                },
+            )
             raise RuntimeError(
                 f"Model load blocked (threat_score={report.threat_score}, "
-                f"level={report.threat_level.value}):\n"
-                + "\n".join(report.findings)
+                f"level={report.threat_level.value}):\n" + "\n".join(report.findings)
             )
 
         path = Path(model_path)
@@ -742,11 +823,14 @@ class SecureModelLoader:
         sandbox_ok = _apply_seccomp(self.sandbox_policy)
         report.sandbox_active = sandbox_ok
 
-        self.audit.record("LOAD_START", {
-            "path": str(path),
-            "format": report.format.value,
-            "sandbox_active": sandbox_ok,
-        })
+        self.audit.record(
+            "LOAD_START",
+            {
+                "path": str(path),
+                "format": report.format.value,
+                "sandbox_active": sandbox_ok,
+            },
+        )
 
         model = self._dispatch_load(path, report.format)
 
@@ -767,6 +851,7 @@ class SecureModelLoader:
     def _load_safetensors(self, path: Path) -> Any:
         try:
             from safetensors import safe_open  # type: ignore
+
             tensors = {}
             with safe_open(str(path), framework="pt", device="cpu") as f:
                 for key in f.keys():
@@ -780,13 +865,13 @@ class SecureModelLoader:
     def _load_pickle(self, path: Path) -> Any:
         try:
             import torch  # type: ignore
+
             # weights_only=True is mandatory; restricts unpickling to
             # primitive types + known tensor classes.
             return torch.load(str(path), map_location="cpu", weights_only=True)
         except ImportError:
             raise RuntimeError(
-                "PyTorch is required for .pt/.pth/.bin files. "
-                "Install with: pip install torch"
+                "PyTorch is required for .pt/.pth/.bin files. Install with: pip install torch"
             )
         except Exception as e:
             raise RuntimeError(f"torch.load failed: {e}") from e
@@ -794,11 +879,10 @@ class SecureModelLoader:
     def _load_onnx(self, path: Path) -> Any:
         try:
             import onnx  # type: ignore
+
             return onnx.load(str(path))
         except ImportError:
-            raise RuntimeError(
-                "onnx package required. Install with: pip install onnx"
-            )
+            raise RuntimeError("onnx package required. Install with: pip install onnx")
 
     # ------------------------------------------------------------------
     def summary(self, report: ValidationReport) -> str:
@@ -865,19 +949,25 @@ def _cli() -> None:
         help="seccomp sandbox policy",
     )
     parser.add_argument(
-        "--require-provenance", action="store_true",
+        "--require-provenance",
+        action="store_true",
         help="Reject model if provenance cannot be verified",
     )
     parser.add_argument(
-        "--require-sbom", action="store_true",
+        "--require-sbom",
+        action="store_true",
         help="Reject model if no SBOM is present",
     )
     parser.add_argument(
-        "--max-score", type=int, default=20,
+        "--max-score",
+        type=int,
+        default=20,
         help="Maximum allowed threat score (0-100)",
     )
     parser.add_argument("--audit-log", default=None, help="Append-only JSONL audit log path")
-    parser.add_argument("--load", action="store_true", help="Actually load the model after validation")
+    parser.add_argument(
+        "--load", action="store_true", help="Actually load the model after validation"
+    )
     parser.add_argument("--json", action="store_true", help="Output report as JSON")
     args = parser.parse_args()
 
@@ -899,6 +989,7 @@ def _cli() -> None:
 
     if args.json:
         import dataclasses
+
         print(json.dumps(dataclasses.asdict(report), default=str, indent=2))
     else:
         print(loader.summary(report))

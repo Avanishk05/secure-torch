@@ -38,9 +38,7 @@ def make_sbom(
 
 def write_policy(content: str) -> str:
     """Write a .rego policy to a temp file and return path."""
-    f = tempfile.NamedTemporaryFile(
-        mode="w", suffix=".rego", delete=False, encoding="utf-8"
-    )
+    f = tempfile.NamedTemporaryFile(mode="w", suffix=".rego", delete=False, encoding="utf-8")
     f.write(content)
     f.close()
     return f.name

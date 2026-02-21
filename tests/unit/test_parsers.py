@@ -25,13 +25,17 @@ import pytest
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+
 def make_pickle_payload(module: str, func: str, args: list) -> bytes:
     """Build a pickle payload that calls module.func(*args) on load."""
+
     class _Exploit:
         def __reduce__(self):
             import importlib
+
             m = importlib.import_module(module)
             return getattr(m, func), tuple(args)
+
     buf = io.BytesIO()
     pickle.dump(_Exploit(), buf)
     return buf.getvalue()
@@ -56,8 +60,8 @@ def make_safetensors_file(metadata: dict = None, tensors: dict = None) -> bytes:
 
 # ── Pickle opcode validator tests ─────────────────────────────────────────────
 
-class TestPickleOpcodeValidator:
 
+class TestPickleOpcodeValidator:
     def test_malicious_os_system_blocked(self):
         """Pickle calling os.system must be blocked immediately."""
         from secure_torch.formats.pickle_safe import validate_pickle
@@ -107,6 +111,7 @@ class TestPickleOpcodeValidator:
         class _CustomObj:
             def __reduce__(self):
                 return (dict, ())  # safe callable, but we'll test scoring separately
+
         payload = pickle.dumps({"x": 1})
         scorer = ThreatScorer()
         validate_pickle(payload, scorer)
@@ -116,8 +121,8 @@ class TestPickleOpcodeValidator:
 
 # ── SafeTensors validator tests ───────────────────────────────────────────────
 
-class TestSafeTensorsValidator:
 
+class TestSafeTensorsValidator:
     def test_code_in_metadata_scored(self):
         """eval() in metadata must add to threat score."""
         from secure_torch.formats.safetensors import validate_safetensors
@@ -131,7 +136,9 @@ class TestSafeTensorsValidator:
         try:
             scorer = ThreatScorer()
             validate_safetensors(tmp_path, scorer)
-            assert scorer.total >= 50, f"Expected >=50 score for code in metadata, got {scorer.total}"
+            assert scorer.total >= 50, (
+                f"Expected >=50 score for code in metadata, got {scorer.total}"
+            )
         finally:
             os.unlink(tmp_path)
 
@@ -148,7 +155,9 @@ class TestSafeTensorsValidator:
         try:
             scorer = ThreatScorer()
             validate_safetensors(tmp_path, scorer)
-            assert scorer.total == 0, f"Expected 0 score for clean metadata, got {scorer.total}: {scorer.breakdown}"
+            assert scorer.total == 0, (
+                f"Expected 0 score for clean metadata, got {scorer.total}: {scorer.breakdown}"
+            )
         finally:
             os.unlink(tmp_path)
 
@@ -157,9 +166,9 @@ class TestSafeTensorsValidator:
         from secure_torch.formats.safetensors import validate_safetensors
         from secure_torch.threat_score import ThreatScorer
 
-        content = make_safetensors_file(tensors={
-            "weight": {"dtype": "object", "shape": [10, 10], "data_offsets": [0, 100]}
-        })
+        content = make_safetensors_file(
+            tensors={"weight": {"dtype": "object", "shape": [10, 10], "data_offsets": [0, 100]}}
+        )
         with tempfile.NamedTemporaryFile(suffix=".safetensors", delete=False) as f:
             f.write(content)
             tmp_path = Path(f.name)
@@ -190,8 +199,8 @@ class TestSafeTensorsValidator:
 
 # ── Threat scoring tests ──────────────────────────────────────────────────────
 
-class TestThreatScorer:
 
+class TestThreatScorer:
     def test_score_is_named_dict(self):
         """Score breakdown must be a named dict, not a magic number."""
         from secure_torch.threat_score import ThreatScorer
@@ -228,34 +237,38 @@ class TestThreatScorer:
 
 # ── Format detection tests ────────────────────────────────────────────────────
 
-class TestFormatDetect:
 
+class TestFormatDetect:
     def test_safetensors_extension(self):
         from secure_torch.format_detect import detect_format
         from secure_torch.models import ModelFormat
+
         assert detect_format("model.safetensors") == ModelFormat.SAFETENSORS
 
     def test_pt_extension(self):
         from secure_torch.format_detect import detect_format
         from secure_torch.models import ModelFormat
+
         assert detect_format("model.pt") == ModelFormat.PICKLE
 
     def test_onnx_extension(self):
         from secure_torch.format_detect import detect_format
         from secure_torch.models import ModelFormat
+
         assert detect_format("model.onnx") == ModelFormat.ONNX
 
     def test_unknown_extension_raises(self):
         from secure_torch.format_detect import detect_format
         from secure_torch.exceptions import FormatError
+
         with pytest.raises(FormatError):
             detect_format("model.xyz")
 
 
 # ── Pipeline / API tests ──────────────────────────────────────────────────────
 
-class TestPipeline:
 
+class TestPipeline:
     def test_require_signature_fails_closed(self):
         """require_signature=True with no bundle must raise SignatureRequiredError."""
         import secure_torch as st
@@ -297,6 +310,7 @@ class TestPipeline:
     def test_drop_in_import(self):
         """import secure_torch as torch must expose load, save, jit, hub."""
         import secure_torch as torch
+
         assert callable(torch.load)
         assert callable(torch.save)
         assert hasattr(torch, "jit")
@@ -326,10 +340,14 @@ deny[msg] {
         with tempfile.NamedTemporaryFile(suffix=".safetensors", delete=False) as mf:
             mf.write(content)
             model_path = mf.name
-        with tempfile.NamedTemporaryFile(suffix=".spdx.json", delete=False, mode="w", encoding="utf-8") as sf:
+        with tempfile.NamedTemporaryFile(
+            suffix=".spdx.json", delete=False, mode="w", encoding="utf-8"
+        ) as sf:
             json.dump(sbom_doc, sf)
             sbom_path = sf.name
-        with tempfile.NamedTemporaryFile(suffix=".rego", delete=False, mode="w", encoding="utf-8") as pf:
+        with tempfile.NamedTemporaryFile(
+            suffix=".rego", delete=False, mode="w", encoding="utf-8"
+        ) as pf:
             pf.write(policy)
             policy_path = pf.name
 
@@ -367,10 +385,14 @@ deny[msg] {
         with tempfile.NamedTemporaryFile(suffix=".safetensors", delete=False) as mf:
             mf.write(content)
             model_path = mf.name
-        with tempfile.NamedTemporaryFile(suffix=".spdx.json", delete=False, mode="w", encoding="utf-8") as sf:
+        with tempfile.NamedTemporaryFile(
+            suffix=".spdx.json", delete=False, mode="w", encoding="utf-8"
+        ) as sf:
             json.dump(sbom_doc, sf)
             sbom_path = sf.name
-        with tempfile.NamedTemporaryFile(suffix=".rego", delete=False, mode="w", encoding="utf-8") as pf:
+        with tempfile.NamedTemporaryFile(
+            suffix=".rego", delete=False, mode="w", encoding="utf-8"
+        ) as pf:
             pf.write(policy)
             policy_path = pf.name
 
@@ -391,7 +413,6 @@ deny[msg] {
 
 
 class TestRemoteLoaderGuardrails:
-
     def test_hub_load_security_args_raise(self):
         """hub.load must reject unsupported security args instead of ignoring them."""
         import secure_torch as st

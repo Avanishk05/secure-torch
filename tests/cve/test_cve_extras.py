@@ -8,6 +8,7 @@ Additional attack vectors not covered in the main CVE suite:
 - ctypes hazard in pickle stream
 - socket in pickle stream (exfiltration)
 """
+
 from __future__ import annotations
 
 import io
@@ -22,18 +23,17 @@ from secure_torch.exceptions import UnsafePickleError
 def make_stack_global_payload(module: str, name: str) -> bytes:
     """Build minimal STACK_GLOBAL pickle payload."""
     buf = io.BytesIO()
-    buf.write(b'\x80\x04')
-    module_b = module.encode('utf-8')
-    buf.write(b'\x8c' + bytes([len(module_b)]) + module_b)
-    name_b = name.encode('utf-8')
-    buf.write(b'\x8c' + bytes([len(name_b)]) + name_b)
-    buf.write(b'\x93')  # STACK_GLOBAL
-    buf.write(b'.')     # STOP
+    buf.write(b"\x80\x04")
+    module_b = module.encode("utf-8")
+    buf.write(b"\x8c" + bytes([len(module_b)]) + module_b)
+    name_b = name.encode("utf-8")
+    buf.write(b"\x8c" + bytes([len(name_b)]) + name_b)
+    buf.write(b"\x93")  # STACK_GLOBAL
+    buf.write(b".")  # STOP
     return buf.getvalue()
 
 
 class TestNewCVEVectors:
-
     def test_importlib_import_module_blocked(self):
         """
         importlib.import_module is a powerful dynamic import vector.
@@ -51,10 +51,11 @@ class TestNewCVEVectors:
         against DANGEROUS_MODULES.
         """
         import io
+
         buf = io.BytesIO()
-        buf.write(b'\x80\x02')
-        buf.write(b'cbuiltins\neval\n')  # GLOBAL opcode: 'c' (0x63), arg = 'builtins eval'
-        buf.write(b'.')
+        buf.write(b"\x80\x02")
+        buf.write(b"cbuiltins\neval\n")  # GLOBAL opcode: 'c' (0x63), arg = 'builtins eval'
+        buf.write(b".")
         payload = buf.getvalue()
         scorer = ThreatScorer()
         with pytest.raises(UnsafePickleError, match="Dangerous callable"):
@@ -70,10 +71,11 @@ class TestNewCVEVectors:
     def test_builtins_exec_blocked(self):
         """builtins.exec via GLOBAL opcode must be blocked."""
         import io
+
         buf = io.BytesIO()
-        buf.write(b'\x80\x02')
-        buf.write(b'cbuiltins\nexec\n')  # GLOBAL opcode
-        buf.write(b'.')
+        buf.write(b"\x80\x02")
+        buf.write(b"cbuiltins\nexec\n")  # GLOBAL opcode
+        buf.write(b".")
         payload = buf.getvalue()
         scorer = ThreatScorer()
         with pytest.raises(UnsafePickleError, match="Dangerous callable"):
@@ -82,10 +84,11 @@ class TestNewCVEVectors:
     def test_builtins_compile_blocked(self):
         """builtins.compile via GLOBAL opcode must be blocked."""
         import io
+
         buf = io.BytesIO()
-        buf.write(b'\x80\x02')
-        buf.write(b'cbuiltins\ncompile\n')  # GLOBAL opcode
-        buf.write(b'.')
+        buf.write(b"\x80\x02")
+        buf.write(b"cbuiltins\ncompile\n")  # GLOBAL opcode
+        buf.write(b".")
         payload = buf.getvalue()
         scorer = ThreatScorer()
         with pytest.raises(UnsafePickleError, match="Dangerous callable"):
@@ -94,10 +97,11 @@ class TestNewCVEVectors:
     def test_builtins_dunder_import_blocked(self):
         """builtins.__import__ via GLOBAL opcode must be blocked."""
         import io
+
         buf = io.BytesIO()
-        buf.write(b'\x80\x02')
-        buf.write(b'cbuiltins\n__import__\n')  # GLOBAL opcode
-        buf.write(b'.')
+        buf.write(b"\x80\x02")
+        buf.write(b"cbuiltins\n__import__\n")  # GLOBAL opcode
+        buf.write(b".")
         payload = buf.getvalue()
         scorer = ThreatScorer()
         with pytest.raises(UnsafePickleError, match="Dangerous callable"):

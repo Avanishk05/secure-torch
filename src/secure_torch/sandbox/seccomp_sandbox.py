@@ -26,10 +26,10 @@ def apply_seccomp() -> bool:
         return False
 
     try:
-
         # Try using python-prctl if available
         try:
             import prctl
+
             _apply_via_prctl(prctl)
             return True
         except ImportError:
@@ -56,13 +56,28 @@ def _apply_via_prctl(prctl) -> None:
 
     # Define allowed syscalls for tensor deserialization
     ALLOWED_SYSCALLS = [
-        "read", "write", "mmap", "munmap", "brk",
-        "mprotect", "futex", "exit_group",
-        "fstat", "stat", "open", "openat", "close",
-        "lseek", "pread64", "pwrite64",
-        "getpid", "gettid",
-        "rt_sigaction", "rt_sigprocmask",
-        "madvise", "mremap",
+        "read",
+        "write",
+        "mmap",
+        "munmap",
+        "brk",
+        "mprotect",
+        "futex",
+        "exit_group",
+        "fstat",
+        "stat",
+        "open",
+        "openat",
+        "close",
+        "lseek",
+        "pread64",
+        "pwrite64",
+        "getpid",
+        "gettid",
+        "rt_sigaction",
+        "rt_sigprocmask",
+        "madvise",
+        "mremap",
     ]
 
     # BLOCKED: execve, socket, bind, connect, ptrace → SIGSYS

@@ -23,60 +23,66 @@ from secure_torch.threat_score import (
 )
 
 # Modules that are safe to reference in pickle streams
-SAFE_MODULES: frozenset[str] = frozenset({
-    "torch",
-    "torch.storage",
-    "torch._utils",
-    "torch.nn.modules",
-    "torch.nn.parameter",
-    "collections",
-    "collections.OrderedDict",
-    "_codecs",
-    "numpy",
-    "numpy.core.multiarray",
-    "__builtin__",
-    "builtins",
-})
+SAFE_MODULES: frozenset[str] = frozenset(
+    {
+        "torch",
+        "torch.storage",
+        "torch._utils",
+        "torch.nn.modules",
+        "torch.nn.parameter",
+        "collections",
+        "collections.OrderedDict",
+        "_codecs",
+        "numpy",
+        "numpy.core.multiarray",
+        "__builtin__",
+        "builtins",
+    }
+)
 
 # Modules that are always dangerous — immediate block
-# Rationale: These modules enable filesystem access, process execution, 
-# dynamic code loading, or memory manipulation and are common targets 
+# Rationale: These modules enable filesystem access, process execution,
+# dynamic code loading, or memory manipulation and are common targets
 # in pickle deserialization exploits.
-DANGEROUS_MODULES: frozenset[str] = frozenset({
-    "os",
-    "nt",           # Windows alias for os module
-    "posix",        # Unix alias for os module
-    "subprocess",
-    "sys",
-    "importlib",
-    "importlib.import_module",
-    "builtins.eval",
-    "builtins.exec",
-    "builtins.compile",
-    "builtins.__import__",
-    "socket",
-    "shutil",
-    "pathlib",
-    "ctypes",
-    "cffi",
-    "multiprocessing",
-    "threading",
-    "pty",
-    "signal",
-    "gc",
-    "weakref",
-})
+DANGEROUS_MODULES: frozenset[str] = frozenset(
+    {
+        "os",
+        "nt",  # Windows alias for os module
+        "posix",  # Unix alias for os module
+        "subprocess",
+        "sys",
+        "importlib",
+        "importlib.import_module",
+        "builtins.eval",
+        "builtins.exec",
+        "builtins.compile",
+        "builtins.__import__",
+        "socket",
+        "shutil",
+        "pathlib",
+        "ctypes",
+        "cffi",
+        "multiprocessing",
+        "threading",
+        "pty",
+        "signal",
+        "gc",
+        "weakref",
+    }
+)
 
 # Opcodes that can execute arbitrary callables
-EXECUTION_OPCODES: frozenset[str] = frozenset({
-    "REDUCE",
-    "BUILD",
-    "INST",
-    "OBJ",
-    "NEWOBJ",
-    "NEWOBJ_EX",
-    "STACK_GLOBAL",
-})
+EXECUTION_OPCODES: frozenset[str] = frozenset(
+    {
+        "REDUCE",
+        "BUILD",
+        "INST",
+        "OBJ",
+        "NEWOBJ",
+        "NEWOBJ_EX",
+        "STACK_GLOBAL",
+    }
+)
 
 
 def validate_pickle(data: bytes, scorer: ThreatScorer) -> None:
@@ -125,8 +131,8 @@ def _walk_opcodes(data: bytes, scorer: ThreatScorer) -> None:
             raw = str(arg) if arg else ""
             parts = raw.split(" ", 1)
             module_name = parts[0] if parts else ""
-            func_name   = parts[1] if len(parts) > 1 else ""
-            dotted      = f"{module_name}.{func_name}" if func_name else module_name
+            func_name = parts[1] if len(parts) > 1 else ""
+            dotted = f"{module_name}.{func_name}" if func_name else module_name
             last_global = module_name
             _check_module_ref(module_name, pos, scorer)
             # Also block the exact dotted form e.g. "builtins.eval" in DANGEROUS_MODULES
@@ -142,10 +148,10 @@ def _walk_opcodes(data: bytes, scorer: ThreatScorer) -> None:
             # Last two string pushes are (module, name) in that order
             if len(string_stack) >= 2:
                 module_name = string_stack[-2]
-                func_name   = string_stack[-1]
+                func_name = string_stack[-1]
             elif len(string_stack) == 1:
                 module_name = string_stack[-1]
-                func_name   = ""
+                func_name = ""
             else:
                 module_name, func_name = "", ""
 
@@ -173,9 +179,7 @@ def _walk_opcodes(data: bytes, scorer: ThreatScorer) -> None:
             module_name = str(arg) if arg else ""
             module_root = module_name.split(".")[0] if module_name else ""
             if module_root in DANGEROUS_MODULES or module_name in DANGEROUS_MODULES:
-                raise UnsafePickleError(
-                    f"Dangerous INST opcode at byte {pos}: '{module_name}'"
-                )
+                raise UnsafePickleError(f"Dangerous INST opcode at byte {pos}: '{module_name}'")
             scorer.add("pickle_inst_opcode", SCORE_PICKLE_INST_OPCODE)
 
 
@@ -192,7 +196,6 @@ def _check_module_ref(module_name: str, pos: int, scorer: ThreatScorer) -> None:
             f"pickle_global_unknown_module:{module_name}",
             SCORE_PICKLE_GLOBAL_UNKNOWN,
         )
-
 
 
 def _is_safe_module(module_name: str) -> bool:
@@ -218,6 +221,7 @@ def build_pickle_payload(module: str, func: str, args: list) -> bytes:
     class _Exploit:
         def __reduce__(self):
             import importlib
+
             m = importlib.import_module(module)
             return getattr(m, func), tuple(args)
 

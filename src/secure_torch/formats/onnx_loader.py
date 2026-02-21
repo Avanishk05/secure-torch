@@ -19,16 +19,22 @@ from secure_torch.threat_score import (
 )
 
 # Standard ONNX operator domains — anything else is a custom op
-STANDARD_DOMAINS: frozenset[str] = frozenset({
-    "",           # default ONNX domain
-    "ai.onnx",
-    "ai.onnx.ml",
-    "ai.onnx.training",
-    "com.microsoft",  # widely used ONNX Runtime extensions
-})
+STANDARD_DOMAINS: frozenset[str] = frozenset(
+    {
+        "",  # default ONNX domain
+        "ai.onnx",
+        "ai.onnx.ml",
+        "ai.onnx.training",
+        "com.microsoft",  # widely used ONNX Runtime extensions
+    }
+)
 
 CODE_PATTERNS: tuple[str, ...] = (
-    "eval(", "exec(", "os.system", "subprocess", "__import__",
+    "eval(",
+    "exec(",
+    "os.system",
+    "subprocess",
+    "__import__",
 )
 
 

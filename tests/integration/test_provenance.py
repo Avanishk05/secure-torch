@@ -16,8 +16,8 @@ import tempfile
 from pathlib import Path
 
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
 
 def make_temp_model(content: bytes = b"fake model weights") -> Path:
     """Write a temp file and return its path."""
@@ -101,6 +101,7 @@ def sign_file_ecdsa(private_key, file_path: Path) -> bytes:
 
 
 # ── Offline pubkey verification tests (Mode 2) ────────────────────────────────
+
 
 class TestOfflinePubkeyVerification:
     """
@@ -238,7 +239,9 @@ class TestOfflinePubkeyVerification:
         try:
             verifier = SigstoreVerifier()
             result = verifier.verify_with_pubkey(model_path, sig_path, pubkey_path)
-            assert result.verified is True, f"Expected RSA verification success, got: {result.error}"
+            assert result.verified is True, (
+                f"Expected RSA verification success, got: {result.error}"
+            )
             assert result.mode == "pubkey"
         finally:
             os.unlink(model_path)
@@ -264,7 +267,9 @@ class TestOfflinePubkeyVerification:
         try:
             verifier = SigstoreVerifier()
             result = verifier.verify_with_pubkey(model_path, sig_path, pubkey_path)
-            assert result.verified is True, f"Expected ECDSA verification success, got: {result.error}"
+            assert result.verified is True, (
+                f"Expected ECDSA verification success, got: {result.error}"
+            )
             assert result.mode == "pubkey"
         finally:
             os.unlink(model_path)
@@ -273,6 +278,7 @@ class TestOfflinePubkeyVerification:
 
 
 # ── Online Sigstore verification tests (Mode 1) ───────────────────────────────
+
 
 class TestOnlineSigstoreVerification:
     """
@@ -302,6 +308,7 @@ class TestOnlineSigstoreVerification:
         """If sigstore package is not installed, must return unverified gracefully."""
         from secure_torch.provenance import sigstore_verifier
         import builtins
+
         real_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -328,8 +335,8 @@ class TestOnlineSigstoreVerification:
 
 # ── require_signature pipeline integration ────────────────────────────────────
 
-class TestRequireSignaturePipeline:
 
+class TestRequireSignaturePipeline:
     def test_require_signature_with_valid_offline_sig_passes(self):
         """
         Full pipeline: require_signature=True with a valid offline pubkey sig

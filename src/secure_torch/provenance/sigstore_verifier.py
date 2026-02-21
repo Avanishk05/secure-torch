@@ -58,9 +58,7 @@ class SigstoreVerifier:
 
             # Build identity policy
             if trusted_publishers:
-                identities = [
-                    Identity(identity=pub) for pub in trusted_publishers
-                ]
+                identities = [Identity(identity=pub) for pub in trusted_publishers]
                 policy = AnyOf(identities)
             else:
                 # No publisher restriction — verify chain only

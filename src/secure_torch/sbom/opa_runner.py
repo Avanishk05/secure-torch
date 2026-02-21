@@ -74,10 +74,14 @@ class OPAPolicyRunner:
         try:
             result = subprocess.run(
                 [
-                    self._opa_binary, "eval",
-                    "--data", self.policy_path,
-                    "--input", input_file,
-                    "--format", "json",
+                    self._opa_binary,
+                    "eval",
+                    "--data",
+                    self.policy_path,
+                    "--input",
+                    input_file,
+                    "--format",
+                    "json",
                     "data.secure_torch.policy.deny",
                 ],
                 capture_output=True,

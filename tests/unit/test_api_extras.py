@@ -10,6 +10,7 @@ Covers:
 - st.from_pretrained passes through without security args
 - load() accepts and forwards all security kwargs
 """
+
 from __future__ import annotations
 
 import json
@@ -34,7 +35,6 @@ def make_safetensors_file() -> Path:
 
 
 class TestPublicAPICompleteness:
-
     def test_load_is_callable(self):
         assert callable(st.load)
 
@@ -70,7 +70,6 @@ class TestPublicAPICompleteness:
 
 
 class TestLoadKwargsPassthrough:
-
     def test_load_accepts_audit_only(self):
         path = make_safetensors_file()
         try:
@@ -92,8 +91,7 @@ class TestLoadKwargsPassthrough:
         """Passing trusted_publishers should not crash (even if no signature)."""
         path = make_safetensors_file()
         try:
-            result = st.load(str(path), audit_only=True,
-                             trusted_publishers=["example.com"])
+            result = st.load(str(path), audit_only=True, trusted_publishers=["example.com"])
             model, report = result
             assert report is not None
         finally:
@@ -112,7 +110,6 @@ class TestLoadKwargsPassthrough:
 
 
 class TestJitModule:
-
     def test_jit_load_delegates_to_secure_load(self):
         """st.jit.load must be callable and accept a path argument."""
         # We just verify the API is wired up properly — actual loading
@@ -124,16 +121,16 @@ class TestJitModule:
         except Exception as e:
             # Any other exception means the API isn't wired as expected
             # Acceptable exceptions include ImportError (torch not installed)
-            assert "torch" in str(e).lower() or "file" in str(e).lower() or "format" in str(e).lower(), (
-                f"Unexpected exception from jit.load: {e}"
-            )
+            assert (
+                "torch" in str(e).lower() or "file" in str(e).lower() or "format" in str(e).lower()
+            ), f"Unexpected exception from jit.load: {e}"
 
 
 class TestHubModule:
-
     def test_hub_load_no_security_args_does_not_raise_security_error(self):
         """hub.load without any security args must pass through (may raise ImportError)."""
         from secure_torch.exceptions import SecurityError
+
         try:
             st.hub.load("pytorch/vision", "resnet18")
         except SecurityError:
@@ -143,5 +140,6 @@ class TestHubModule:
 
     def test_hub_load_with_security_args_raises(self):
         from secure_torch.exceptions import SecurityError
+
         with pytest.raises(SecurityError):
             st.hub.load("pytorch/vision", "resnet18", require_signature=True)

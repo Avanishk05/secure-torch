@@ -8,6 +8,7 @@ Covers:
 - REDUCE scoring for unknown modules
 - Malformed / garbage pickle bytes
 """
+
 from __future__ import annotations
 
 import io
@@ -25,6 +26,7 @@ from secure_torch.exceptions import UnsafePickleError
 
 # ── Helper: craft STACK_GLOBAL payloads manually ──────────────────────────────
 
+
 def make_stack_global_payload(module: str, name: str) -> bytes:
     """
     Build a minimal pickle payload using STACK_GLOBAL opcode.
@@ -37,17 +39,17 @@ def make_stack_global_payload(module: str, name: str) -> bytes:
     # We manually write the opcodes
     buf2 = io.BytesIO()
     # PROTO 4
-    buf2.write(b'\x80\x04')
+    buf2.write(b"\x80\x04")
     # Push module string
-    module_bytes = module.encode('utf-8')
-    buf2.write(b'\x8c' + bytes([len(module_bytes)]) + module_bytes)
+    module_bytes = module.encode("utf-8")
+    buf2.write(b"\x8c" + bytes([len(module_bytes)]) + module_bytes)
     # Push name string
-    name_bytes = name.encode('utf-8')
-    buf2.write(b'\x8c' + bytes([len(name_bytes)]) + name_bytes)
+    name_bytes = name.encode("utf-8")
+    buf2.write(b"\x8c" + bytes([len(name_bytes)]) + name_bytes)
     # STACK_GLOBAL
-    buf2.write(b'\x93')
+    buf2.write(b"\x93")
     # STOP
-    buf2.write(b'.')
+    buf2.write(b".")
     return buf2.getvalue()
 
 
@@ -55,8 +57,10 @@ def make_pickle_payload(module: str, func: str, args: list) -> bytes:
     class _Exploit:
         def __reduce__(self):
             import importlib
+
             m = importlib.import_module(module)
             return getattr(m, func), tuple(args)
+
     buf = io.BytesIO()
     pickle.dump(_Exploit(), buf)
     return buf.getvalue()
@@ -64,8 +68,8 @@ def make_pickle_payload(module: str, func: str, args: list) -> bytes:
 
 # ── _is_safe_module tests ─────────────────────────────────────────────────────
 
-class TestIsSafeModule:
 
+class TestIsSafeModule:
     def test_torch_is_safe(self):
         assert _is_safe_module("torch") is True
 
@@ -104,8 +108,8 @@ class TestIsSafeModule:
 
 # ── STACK_GLOBAL opcode tests ─────────────────────────────────────────────────
 
-class TestStackGlobalOpcode:
 
+class TestStackGlobalOpcode:
     def test_stack_global_os_system_blocked(self):
         """STACK_GLOBAL referencing os.system must be blocked."""
         payload = make_stack_global_payload("os", "system")
@@ -133,6 +137,7 @@ class TestStackGlobalOpcode:
         scorer = ThreatScorer()
         with pytest.raises(UnsafePickleError, match="Dangerous callable"):
             validate_pickle(payload, scorer)
+
     def test_stack_global_nt_blocked(self):
         """STACK_GLOBAL referencing nt (Windows os alias) must be blocked."""
         payload = make_stack_global_payload("nt", "system")
@@ -143,16 +148,16 @@ class TestStackGlobalOpcode:
 
 # ── REDUCE opcode scoring ─────────────────────────────────────────────────────
 
-class TestReduceOpcodeScoring:
 
+class TestReduceOpcodeScoring:
     def test_unknown_module_reduce_scores(self):
         """A REDUCE on an unknown module should add to the threat score."""
         # Hand-craft a pickle: GLOBAL 'mylib\ncustom_fn\n' + EMPTY_TUPLE + REDUCE
         # This avoids calling build_pickle_payload which tries to import the module at creation time.
         buf = io.BytesIO()
-        buf.write(b'\x80\x02')          # PROTO 2
-        buf.write(b'cmylib\ncustom_fn\n')  # GLOBAL opcode (c = 0x63)
-        buf.write(b').')                 # EMPTY_TUPLE, then STOP
+        buf.write(b"\x80\x02")  # PROTO 2
+        buf.write(b"cmylib\ncustom_fn\n")  # GLOBAL opcode (c = 0x63)
+        buf.write(b").")  # EMPTY_TUPLE, then STOP
         payload = buf.getvalue()
 
         scorer = ThreatScorer()
@@ -173,12 +178,12 @@ class TestReduceOpcodeScoring:
 
 # ── Malformed bytes ───────────────────────────────────────────────────────────
 
-class TestMalformedPickle:
 
+class TestMalformedPickle:
     def test_garbage_bytes_warns_not_raises(self):
         """Garbage bytes must produce a warning, not an uncaught exception."""
         scorer = ThreatScorer()
-        validate_pickle(b"\xFF\xFE\xFD\xFC\xFB\xFA", scorer)
+        validate_pickle(b"\xff\xfe\xfd\xfc\xfb\xfa", scorer)
         # Should have logged a warning
         assert len(scorer.warnings) > 0 or scorer.total == 0  # warned or safely scored 0
 

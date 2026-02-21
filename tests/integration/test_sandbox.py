@@ -23,7 +23,6 @@ def make_safetensors_file(metadata: dict = None) -> bytes:
 
 
 class TestSubprocessSandbox:
-
     def test_sandbox_loads_safetensors(self):
         """Subprocess sandbox must successfully load a safetensors file."""
         from secure_torch.sandbox.subprocess_sandbox import SubprocessSandbox
@@ -58,7 +57,6 @@ class TestSubprocessSandbox:
         finally:
             os.unlink(tmp_path)
 
-
     def test_sandbox_env_strips_proxy_vars(self):
         """Subprocess sandbox must strip HTTP proxy env vars."""
         from secure_torch.sandbox.subprocess_sandbox import SubprocessSandbox
@@ -76,12 +74,10 @@ class TestSubprocessSandbox:
             del os.environ["HTTP_PROXY"]
             del os.environ["HTTPS_PROXY"]
 
-    @pytest.mark.skipif(
-        os.name != "posix",
-        reason="seccomp is Linux-only"
-    )
+    @pytest.mark.skipif(os.name != "posix", reason="seccomp is Linux-only")
     def test_seccomp_apply_returns_bool(self):
         """apply_seccomp() must return True on Linux or False gracefully."""
         from secure_torch.sandbox.seccomp_sandbox import apply_seccomp
+
         result = apply_seccomp()
         assert isinstance(result, bool)
