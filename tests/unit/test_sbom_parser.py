@@ -14,10 +14,8 @@ import json
 import os
 import tempfile
 
-import pytest
 
 from secure_torch.sbom.spdx_parser import parse_sbom
-from secure_torch.models import SBOMRecord
 
 
 def write_spdx(data: dict) -> str:

@@ -10,7 +10,6 @@ Covers:
 """
 from __future__ import annotations
 
-import pytest
 
 from secure_torch.threat_score import ThreatScorer
 from secure_torch.models import ThreatLevel

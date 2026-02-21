@@ -23,7 +23,7 @@ from secure_torch.threat_score import ThreatScorer
 
 def _onnx_available():
     try:
-        import onnx
+        __import__("onnx")
         return True
     except ImportError:
         return False
@@ -33,7 +33,7 @@ def make_onnx_model(custom_opset_domain: str = None, custom_node_domain: str = N
                     nested_graph: bool = False, metadata: dict = None,
                     external_data_path: str = None):
     """Build a minimal ONNX model with optional dangerous attributes."""
-    from onnx import helper, TensorProto, AttributeProto
+    from onnx import helper, TensorProto
 
     nodes = []
     if custom_node_domain:
@@ -78,7 +78,6 @@ def make_onnx_model(custom_opset_domain: str = None, custom_node_domain: str = N
 
 
 def write_onnx(model) -> Path:
-    from onnx import serialization
     f = tempfile.NamedTemporaryFile(suffix=".onnx", delete=False)
     f.write(model.SerializeToString())
     f.close()

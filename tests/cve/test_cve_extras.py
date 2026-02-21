@@ -11,12 +11,10 @@ Additional attack vectors not covered in the main CVE suite:
 from __future__ import annotations
 
 import io
-import pickle
-import struct
 
 import pytest
 
-from secure_torch.formats.pickle_safe import validate_pickle, build_pickle_payload
+from secure_torch.formats.pickle_safe import validate_pickle
 from secure_torch.threat_score import ThreatScorer
 from secure_torch.exceptions import UnsafePickleError
 

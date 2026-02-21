@@ -1,10 +1,7 @@
 import pytest
 from unittest.mock import patch
-import os
-import secure_torch
 from secure_torch.huggingface import patch_huggingface, unpatch_huggingface
-from secure_torch.exceptions import UnsafeModelError, SecurityError
-from secure_torch.models import ThreatLevel
+from secure_torch.exceptions import UnsafeModelError
 
 def test_huggingface_patch_blocks_unsafe_model(tmp_path):
     # Create a dummy malicious model file

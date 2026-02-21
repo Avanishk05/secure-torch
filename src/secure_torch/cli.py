@@ -111,7 +111,7 @@ def _print_rich_report(report: Any) -> None:
     header_text.append(f"Format: {report.format.name if hasattr(report.format, 'name') else str(report.format)}\n")
     header_text.append(f"Threat Score: {score} ", style="bold")
     header_text.append(f"[{tl_name}]\n", style=level_color)
-    header_text.append(f"Status: ", style="bold")
+    header_text.append("Status: ", style="bold")
     if report.load_allowed:
         header_text.append("ALLOWED\n", style="bold green")
     else:

@@ -5,7 +5,6 @@ Covers all extension mappings and magic byte fallbacks.
 """
 from __future__ import annotations
 
-import struct
 import tempfile
 import os
 from pathlib import Path

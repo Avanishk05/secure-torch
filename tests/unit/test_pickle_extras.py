@@ -11,18 +11,13 @@ Covers:
 from __future__ import annotations
 
 import io
-import opcode
 import pickle
-import struct
 
 import pytest
 
 from secure_torch.formats.pickle_safe import (
     validate_pickle,
     _is_safe_module,
-    build_pickle_payload,
-    SAFE_MODULES,
-    DANGEROUS_MODULES,
 )
 from secure_torch.threat_score import ThreatScorer
 from secure_torch.exceptions import UnsafePickleError
@@ -37,7 +32,7 @@ def make_stack_global_payload(module: str, name: str) -> bytes:
     Protocol 4 uses STACK_GLOBAL.
     """
     buf = io.BytesIO()
-    p = pickle.Pickler(buf, protocol=4)
+    pickle.Pickler(buf, protocol=4)
 
     # We manually write the opcodes
     buf2 = io.BytesIO()

@@ -17,7 +17,6 @@ import struct
 import tempfile
 from pathlib import Path
 
-import pytest
 
 from secure_torch.formats.safetensors import validate_safetensors
 from secure_torch.threat_score import ThreatScorer

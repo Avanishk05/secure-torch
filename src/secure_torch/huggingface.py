@@ -70,7 +70,6 @@ def patch_huggingface(**security_kwargs: Any) -> None:
             str_path = str(file_path)
             # We only scan actual files that look like models
             if os.path.isfile(str_path) and _is_model_file(str_path):
-                import secure_torch
                 logger.info(f"secure_torch: Scanning downloaded Hugging Face model: {str_path}")
                 # We do an audit (if requested) or a full check.
                 # However, since hf_hub_download expects just a path return,
@@ -108,7 +107,7 @@ def patch_huggingface(**security_kwargs: Any) -> None:
                     # and we can add a `scan_only` argument to secure_load.
                     # As a temporary workaround, if the file is very large, this will double RAM.
                     # A better way right now is to use the internal validators.
-                    from secure_torch.loader import _sha256, _run_validators, _verify_signature, _evaluate_sbom_policy, _enforce_policy
+                    from secure_torch.loader import _run_validators, _verify_signature, _evaluate_sbom_policy, _enforce_policy
                     from secure_torch.format_detect import detect_format
                     from secure_torch.threat_score import ThreatScorer
                     

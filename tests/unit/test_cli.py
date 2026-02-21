@@ -14,15 +14,10 @@ from __future__ import annotations
 import json
 import os
 import struct
-import sys
 import tempfile
-from io import StringIO
 from pathlib import Path
-from unittest.mock import patch
 
-import pytest
 
-import secure_torch as st
 from secure_torch.cli import _report_to_dict, _print_rich_report, main
 from secure_torch.models import (
     ModelFormat, ThreatLevel, ValidationReport, ProvenanceRecord, SBOMRecord
