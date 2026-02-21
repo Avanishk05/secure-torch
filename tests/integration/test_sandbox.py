@@ -17,11 +17,25 @@ import pytest
 
 
 def make_safetensors_file(metadata: dict = None) -> bytes:
-    """Create a minimal valid safetensors file with no tensors."""
-    header = {"__metadata__": metadata or {"model": "test"}}
-    header_bytes = json.dumps(header).encode("utf-8")
-    # 8-byte length header + JSON header (no tensor data)
-    return struct.pack("<Q", len(header_bytes)) + header_bytes
+    """Create a minimal valid safetensors file with a single empty tensor."""
+    import torch
+    import safetensors.torch as st
+
+    # Create an empty dict (no tensors) with metadata
+    # safetensors requires the save_file to actually create the file
+    # So we'll create a simple tensor dict
+    tensor_dict = {}
+
+    # If we need to create an actual file, we use safetensors to do it properly
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(suffix=".safetensors", delete=False) as tmp:
+        st.save_file(tensor_dict, tmp.name, metadata=metadata or {"model": "test"})
+        tmp_path = Path(tmp.name)
+        content = tmp_path.read_bytes()
+        tmp_path.unlink()
+
+    return content
 
 
 class TestSubprocessSandbox:
