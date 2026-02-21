@@ -1,8 +1,9 @@
 """
 secure-torch integration examples for LangChain, LlamaIndex, and Haystack.
 
-These show how to wrap framework model loading with secure-torch's
-trust enforcement pipeline.
+These examples enforce secure-torch controls on local model artifacts.
+Remote registry fetch APIs (e.g., from_pretrained/hub) are currently
+compatibility passthroughs and are not security-enforced.
 """
 
 # ── LangChain ─────────────────────────────────────────────────────────────────
@@ -58,22 +59,32 @@ def llamaindex_secure_from_pretrained(
     **kwargs: Any,
 ) -> Any:
     """
-    Secure from_pretrained wrapper for LlamaIndex.
+    Local-path secure loader helper for LlamaIndex.
+
+    Remote registry IDs are not currently security-enforced. This helper
+    requires a local artifact path and then runs secure_torch.load().
 
     Usage::
 
         from examples.integrations import llamaindex_secure_from_pretrained
 
         model = llamaindex_secure_from_pretrained(
-            "sentence-transformers/all-MiniLM-L6-v2",
+            "models/all-MiniLM-L6-v2.safetensors",
             trusted_publishers=["huggingface.co/sentence-transformers"],
         )
 
     """
+    path = Path(model_name_or_path)
+    if not path.exists():
+        raise ValueError(
+            "Remote model IDs are not security-enforced by secure_torch. "
+            "Download artifacts first and pass a local file path."
+        )
+
     import secure_torch as st
 
-    return st.from_pretrained(
-        model_name_or_path,
+    return st.load(
+        str(path),
         require_signature=require_signature,
         trusted_publishers=trusted_publishers,
         audit_only=audit_only,
@@ -86,7 +97,8 @@ def llamaindex_secure_from_pretrained(
 
 class SecureHaystackModelLoader:
     """
-    Haystack-compatible model loader with secure-torch trust enforcement.
+    Haystack-compatible model loader with secure-torch trust enforcement for
+    local model artifacts.
 
     Usage::
 
@@ -126,16 +138,13 @@ class SecureHaystackModelLoader:
         )
 
     def from_pretrained(self, model_name_or_path: str, **kwargs: Any) -> Any:
-        import secure_torch as st
-
-        return st.from_pretrained(
-            model_name_or_path,
-            require_signature=self.require_signature,
-            trusted_publishers=self.trusted_publishers,
-            audit_only=self.audit_only,
-            max_threat_score=self.max_threat_score,
-            **kwargs,
-        )
+        path = Path(model_name_or_path)
+        if not path.exists():
+            raise ValueError(
+                "Remote model IDs are not security-enforced by secure_torch. "
+                "Download artifacts first and pass a local file path."
+            )
+        return self.load(str(path), **kwargs)
 
 
 # ── Gradual adoption example ──────────────────────────────────────────────────

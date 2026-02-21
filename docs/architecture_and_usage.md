@@ -232,21 +232,39 @@ For environments without internet access to Rekor:
 
 ### Using with Other Libraries
 
-secure-torch exposes standard APIs for integration.
+secure-torch security enforcement currently applies to local artifacts loaded via
+`secure_torch.load` and `secure_torch.jit.load`.
 
-#### HuggingFace Transformers
+`secure_torch.from_pretrained` and `secure_torch.hub.load` are compatibility passthroughs
+for remote fetches. They do not enforce signature/publisher/threat-policy checks on remote
+artifacts, and passing security args raises `SecurityError`.
+
+#### Recommended pattern (download, then enforce)
+
+```python
+import secure_torch as torch
+from huggingface_hub import hf_hub_download
+
+local_path = hf_hub_download(
+    repo_id="sentence-transformers/all-MiniLM-L6-v2",
+    filename="pytorch_model.bin",
+)
+
+model = torch.load(
+    local_path,
+    require_signature=True,
+    trusted_publishers=["huggingface.co/sentence-transformers"],
+)
+```
+
+#### TorchHub-style workflow
 
 ```python
 import secure_torch as torch
 
-# secure-torch wraps the loading logic
-model = torch.from_pretrained("bert-base-uncased")
-```
-
-#### TorchHub
-
-```python
-model = torch.hub.load("pytorch/vision:v0.10.0", "resnet18", pretrained=True)
+# 1) Download model artifact with your existing tooling
+# 2) Enforce controls on the local file
+model = torch.load("artifacts/resnet18.pt", require_signature=True)
 ```
 
 ---

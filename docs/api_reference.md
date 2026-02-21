@@ -71,7 +71,12 @@ Runs the full secure pipeline then loads with `torch.jit.load`.
 secure_torch.hub.load(repo_or_dir, model, **kwargs) -> Any
 ```
 
-Wraps `torch.hub.load` with the secure pipeline.
+Compatibility wrapper for `torch.hub.load`.
+
+Remote fetches are **not** currently enforced by secure-torch security controls.
+If security args are supplied (`require_signature`, `trusted_publishers`, `audit_only`,
+`max_threat_score`, `sandbox`, `sbom_*`, `bundle_path`, `pubkey_path`), this call raises
+`SecurityError` instead of silently ignoring them.
 
 ---
 
@@ -81,7 +86,14 @@ Wraps `torch.hub.load` with the secure pipeline.
 secure_torch.from_pretrained(model_name_or_path, **kwargs) -> Any
 ```
 
-Wraps HuggingFace `from_pretrained` with the secure pipeline.
+Compatibility wrapper for HuggingFace `from_pretrained`.
+
+Remote registry fetches are **not** currently enforced by secure-torch security controls.
+If security args are supplied (`require_signature`, `trusted_publishers`, `audit_only`,
+`max_threat_score`, `sandbox`, `sbom_*`, `bundle_path`, `pubkey_path`), this call raises
+`SecurityError`.
+
+For enforced trust checks, download artifacts locally first and use `secure_torch.load()`.
 
 ---
 

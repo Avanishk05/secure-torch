@@ -78,14 +78,18 @@ model = torch.load("model.pt", sandbox=True)
 # Loaded in restricted subprocess — no network, no exec
 ```
 
-## All drop-in surfaces
+## Compatibility surfaces
 
 ```python
 import secure_torch as torch
 
 torch.load("model.pt")
 torch.save(model, "model.pt")
-torch.jit.load("model.pt")
-torch.hub.load("pytorch/vision", "resnet50")
-torch.from_pretrained("bert-base-uncased")
+torch.jit.load("model.pt")  # secure pipeline for local artifacts
+torch.hub.load("pytorch/vision", "resnet50")      # remote convenience passthrough
+torch.from_pretrained("bert-base-uncased")        # remote convenience passthrough
 ```
+
+`torch.hub.load` and `torch.from_pretrained` currently do **not** enforce secure-torch security checks for remote fetches.
+If you pass security args (`require_signature`, `trusted_publishers`, `audit_only`, `max_threat_score`, `sandbox`, `sbom_*`, `bundle_path`, `pubkey_path`) they raise `SecurityError`.
+Use remote APIs only for convenience, or download model artifacts first and run `torch.load(local_path, ...)` for enforced controls.
