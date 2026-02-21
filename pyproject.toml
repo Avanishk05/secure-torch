@@ -46,6 +46,7 @@ pytest-cov = "^4.1"
 mypy = "^1.8"
 ruff = "^0.3"
 bandit = "^1.7"
+torch = ">=2.0"
 
 [tool.poetry.scripts]
 secure-torch = "secure_torch.cli:main"
