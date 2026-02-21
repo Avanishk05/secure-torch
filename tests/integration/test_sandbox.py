@@ -7,9 +7,7 @@ seccomp tests are Linux-only and skipped on Windows.
 
 from __future__ import annotations
 
-import json
 import os
-import struct
 import tempfile
 from pathlib import Path
 
@@ -18,7 +16,6 @@ import pytest
 
 def make_safetensors_file(metadata: dict = None) -> bytes:
     """Create a minimal valid safetensors file with a single empty tensor."""
-    import torch
     import safetensors.torch as st
 
     # Create an empty dict (no tensors) with metadata
