@@ -1,0 +1,25 @@
+============================= test session starts =============================
+collecting ... collected 3 items
+
+tests/unit/test_parsers.py::TestPickleOpcodeValidator::test_malicious_os_system_blocked FAILED
+tests/unit/test_parsers.py::TestPipeline::test_require_signature_fails_closed PASSED
+tests/unit/test_parsers.py::TestPipeline::test_audit_only_loads_despite_high_score PASSED
+
+================================== FAILURES ===================================
+_________ TestPickleOpcodeValidator.test_malicious_os_system_blocked __________
+
+self = <tests.unit.test_parsers.TestPickleOpcodeValidator object at 0x000001E740E6FD60>
+
+    def test_malicious_os_system_blocked(self):
+        """Pickle calling os.system must be blocked immediately."""
+        from secure_torch.formats.pickle_safe import validate_pickle
+        from secure_torch.exceptions import UnsafePickleError
+        from secure_torch.threat_score import ThreatScorer
+    
+        payload = make_pickle_payload("os", "system", ["echo pwned"])
+        scorer = ThreatScorer()
+>       with pytest.raises(UnsafePickleError, match="Dangerous module"):
+E       Failed: DID NOT RAISE <class 'secure_torch.exceptions.UnsafePickleError'>
+
+tests\unit\test_parsers.py:69: Failed
+========================= 1 failed, 2 passed in 2.84s =========================

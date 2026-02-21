@@ -1,0 +1,65 @@
+[tool.poetry]
+name = "secure-torch"
+version = "0.1.0"
+description = "Model Trust Gateway — unified secure loader with signature verification, trust policy enforcement, and sandbox isolation"
+authors = ["Avanish Kulkarni <avaishkulkarni2005@gmail.com>",
+           "Atharva Khambete <atharvakhambete1@gmail.com>"
+]
+license = "Apache-2.0"
+readme = "README.md"
+homepage = "https://github.com/Avanishk05/secure-torch"
+repository = "https://github.com/Avanishk05/secure-torch"
+keywords = ["security", "machine-learning", "model-loading", "sigstore", "supply-chain"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Security",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+packages = [{include = "secure_torch", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+# Core runtime dependencies (required for sandbox IPC and safe tensor handling)
+safetensors = ">=0.4.0"
+packaging = ">=23.0"
+numpy = ">=1.22"
+
+
+
+[tool.poetry.extras]
+torch = ["torch"]
+onnx = ["onnx"]
+sigstore = ["sigstore"]
+all = ["torch", "onnx", "sigstore"]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^7.4"
+pytest-cov = "^4.1"
+mypy = "^1.8"
+ruff = "^0.3"
+bandit = "^1.7"
+
+[tool.poetry.scripts]
+secure-torch = "secure_torch.cli:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.mypy]
+python_version = "3.10"
+strict = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"

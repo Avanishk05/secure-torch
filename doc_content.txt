@@ -1,0 +1,332 @@
+  secure-torch  
+Secure AI Model Loader with Validation
+Complete Build, Test & Publish Implementation Plan
+for Google Antigravity IDE
+February 2026  |  v1.0
+
+Executive Summary
+The AI/ML ecosystem faces a critical, largely unaddressed security gap: loading model weights from untrusted sources can silently execute arbitrary code, exfiltrate data, or compromise entire inference pipelines. PyTorch's torch.load, ONNX Runtime, and even Apple's CoreML loader have demonstrated RCE-class vulnerabilities rooted in unsafe deserialization and unvalidated model metadata.
+
+secure-torch is a Python library that closes this gap by providing a unified, drop-in model loader supporting safetensors, Pickle/PyTorch, and ONNX formats — enriched with cryptographic provenance verification (Sigstore), embedded SBOM parsing (SPDX AI Profile), and runtime sandboxing via Linux seccomp / eBPF. It is designed to be built entirely within Google Antigravity IDE using its multi-agent orchestration and agentic workflow capabilities.
+
+
+
+Problem Statement & Security Gaps
+1. The Deserialization Attack Surface
+PyTorch's default torch.load() uses Python's pickle protocol, which can instantiate arbitrary Python classes during deserialization. A malicious model file crafted to call os.system() or subprocess.Popen() will execute silently when a developer runs a simple model load. The weights_only=True flag partially mitigates this, but does not protect against:
+Hydra / OmegaConf config metadata embedded in NeMo checkpoint files that trigger class instantiation
+ONNX custom operator nodes with embedded C extension callbacks
+Apple CoreML mlpackage manifests with eval()-capable expressions in model spec fields
+
+2. Complete Absence of Provenance Verification
+Enterprise teams download models from Hugging Face, NVIDIA NGC, Salesforce, and model zoos with no cryptographic verification whatsoever. There is no standard equivalent of apt-key verify or npm audit for model weights. Sigstore and Cosign — widely adopted in the container and software supply chain ecosystem — have seen zero native integration in any major ML framework loader as of early 2026.
+
+3. Missing SBOM for Model Artifacts
+The EU AI Act (effective August 2026) and updated NIST AI RMF guidance both require organizations to document the provenance of model weights, training datasets, and runtime dependencies. Current tooling (CycloneDX, SPDX) covers Python packages but is completely blind to .bin, .safetensors, and .parquet files. secure-torch addresses this by parsing and validating SPDX AI Profile manifests embedded in or co-located with model artifacts.
+
+
+
+Solution Architecture
+Core Library Design
+secure-torch is structured as a layered defense stack. Each layer is independently useful and can be adopted incrementally by teams:
+
+
+Public API Design
+The library exposes a minimal, intuitive API that mirrors existing framework conventions:
+
+import secure_torch as st
+
+# Drop-in replacement for torch.load()
+model = st.load(
+    "model.safetensors",
+    verify_sigstore=True,          # Verify Sigstore bundle
+    sbom_policy="policies/oss.rego",  # OPA policy file
+    sandbox=st.Sandbox.SECCOMP,    # Runtime sandboxing
+)
+
+# ONNX session with validation
+sess = st.onnx_session(
+    "model.onnx",
+    verify_provenance=True,
+    emit_sbom=True,                # Write SPDX manifest
+)
+
+
+Google Antigravity IDE Setup
+Why Antigravity for This Project
+Google Antigravity's agent-first architecture makes it uniquely suited for building secure-torch. The library spans systems engineering (seccomp, eBPF), cryptography (Sigstore), policy enforcement (OPA), and Python packaging — a multi-domain project that benefits directly from Antigravity's multi-agent orchestration where specialized agents can work in parallel on different subsystems.
+
+Multi-Agent Manager: Spawn one agent per library layer (parsing, provenance, SBOM, sandboxing) and coordinate via the Agent Manager inbox
+Planning Mode: Use Antigravity's planning artifacts to create and review the implementation task list before writing any code
+Browser Automation: Let agents verify PyPI publish status and test Sigstore API responses live in the integrated browser
+Artifact Transparency: Implementation plans, diffs, and test results are tracked as verifiable Antigravity artifacts — ideal for an open-source security library
+
+Workspace Configuration
+Create a new Antigravity workspace using the Python template. Configure the environment file as follows:
+
+# antigravity.nix / devcontainer.json
+
+packages: [
+  python311, python311Packages.pip,
+  libseccomp, libseccomp.dev,
+  cosign, rekor-cli,
+  cargo, rustup,            # For safetensors-rs bindings
+  wasmtime,                  # WASM sandbox runtime
+  poetry,                    # Dependency management
+  pre-commit, ruff, mypy     # Code quality
+]
+
+# Terminal Policy: Set to 'Auto' for standard commands
+# Review Policy:   Set to 'Request Review' for git push / PyPI publish
+
+Select Gemini 3 Pro as the primary model. For cryptography-heavy implementation tasks (Sigstore integration), switch the relevant agent to Claude Sonnet 4.5 for deeper reasoning on security edge cases.
+
+Agent Roster & Responsibilities
+
+
+Phased Implementation Plan
+Roadmap Overview
+
+Phase 1 — Repository Scaffold & Safe Parser Core (Weeks 1–2)
+Step 1.1: Initialize Repository in Antigravity
+In Antigravity, open Agent Manager and create the first task: 'Initialize a Python library repository for secure-torch with Poetry, following modern packaging best practices.' Set Review Policy to 'Request Review' so you approve the initial structure.
+
+secure-torch/
+├── src/
+│   └── secure_torch/
+│       ├── __init__.py          # Public API surface
+│       ├── loader.py             # Main load() entry point
+│       ├── formats/
+│       │   ├── safetensors.py    # safetensors reader
+│       │   ├── pickle_safe.py    # Pickle AST walker
+│       │   ├── onnx_loader.py    # ONNX inspector
+│       │   └── coreml.py         # CoreML manifest reader
+│       ├── provenance/           # Phase 2
+│       ├── sbom/                 # Phase 3
+│       └── sandbox/              # Phase 4
+├── tests/
+├── docs/
+├── pyproject.toml
+└── .github/workflows/
+
+Step 1.2: Implement the Pickle AST Walker
+This is the most security-critical component of Phase 1. Instruct the Parser Agent: 'Implement a Pickle opcode parser that walks the bytecode stream using pickletools and raises PickleExecutionError if it encounters REDUCE, BUILD, INST, OBJ, or NEWOBJ opcodes that reference classes outside an explicit allowlist.'
+
+# The Pickle AST walker core logic
+SAFE_REDUCE_TARGETS = {
+    "torch.FloatTensor", "torch.LongTensor",
+    "collections.OrderedDict", "_codecs.encode",
+}
+
+def walk_pickle(data: bytes, allowlist: set = SAFE_REDUCE_TARGETS):
+    """Walk pickle opcodes without executing. Raise on unsafe calls."""
+    for opcode, arg, pos in pickletools.genops(io.BytesIO(data)):
+        if opcode.name in ('REDUCE', 'BUILD', 'INST') and arg not in allowlist:
+            raise PickleExecutionError(f'Unsafe opcode {opcode.name}: {arg}')
+
+Step 1.3: Safetensors Integration
+The safetensors format (developed by Hugging Face) is the safest available format as it contains no executable code. Instruct the Parser Agent to wrap the Rust-backed safetensors Python binding with header validation:
+
+Validate header size (must be < 100MB to prevent header-bomb attacks)
+Verify dtype allowlist (no 'void' or custom types that could encode executable payloads)
+Check tensor shape sanity (reject tensors with zero-size or astronomically large dimensions)
+
+Phase 2 — Sigstore Provenance Verification (Weeks 3–4)
+Step 2.1: Sigstore Bundle Verification Flow
+Sigstore uses keyless signing: model publishers sign using their OIDC identity (GitHub Actions, Google, Microsoft) and the signature is stored in the Rekor transparency log. secure-torch will verify this chain:
+
+# Provenance verification flow
+verifier = st.ProvenanceVerifier(
+    rekor_url='https://rekor.sigstore.dev',
+    expected_issuer='https://accounts.google.com',
+    expected_subject='ml-releases@myorg.com'
+)
+
+result = verifier.verify(
+    artifact_path="model.safetensors",
+    bundle_path="model.safetensors.sigstore"
+)
+# result.verified == True, result.signer == 'ml-releases@myorg.com'
+
+Step 2.2: Antigravity Browser Agent for API Testing
+Use Antigravity's browser automation to let the Provenance Agent verify real Rekor API responses during development. Instruct the agent: 'Open https://rekor.sigstore.dev/api/v1/log and verify the API is reachable. Then test a known valid Sigstore bundle from the sigstore-python test fixtures against the live Rekor log.'
+
+This workflow replaces the need for mocking and gives you confidence that your Rekor integration handles real-world response formats including pagination and rate limiting.
+
+Phase 3 — SBOM Parsing & OPA Policy Engine (Weeks 5–6)
+Step 3.1: SPDX AI Profile Support
+The SPDX AI Profile (an extension to SPDX 2.3 / 3.0) adds fields for model cards, training datasets, and algorithmic transparency. secure-torch parses these manifests to extract licensing, training data provenance, and known-vulnerability records:
+
+# Expected SPDX AI Profile manifest (JSON format)
+{
+  "spdxVersion": "SPDX-3.0",
+  "aiProfile": {
+    "modelType": "transformer",
+    "trainingDatasets": [{"name": "The Pile", "license": "MIT"}],
+    "knownVulnerabilities": [],
+    "modelCard": "https://huggingface.co/org/model"
+  }
+}
+
+Step 3.2: OPA Policy Enforcement
+Open Policy Agent (OPA) Rego policies allow organizations to express custom model loading rules. Instruct the SBOM Agent to implement a policy runner that evaluates user-supplied .rego files against the parsed SBOM:
+
+# Example OPA policy: block GPL-licensed model weights in production
+package secure_torch.policy
+
+deny[msg] {
+    ds := input.aiProfile.trainingDatasets[_]
+    startswith(ds.license, "GPL")
+    input.environment == "production"
+    msg := sprintf("GPL dataset %v blocked in production", [ds.name])
+}
+
+Phase 4 — seccomp Runtime Sandbox (Weeks 7–8)
+Step 4.1: Sandbox Architecture
+For legacy Pickle models that cannot be migrated to safetensors, secure-torch provides a last-resort sandbox: the model is loaded in a fork()-ed child process with a strictly allowlisted seccomp-BPF filter. Only syscalls required for tensor deserialization are permitted. Any attempt to call execve, socket, or open on unexpected paths kills the child process immediately.
+
+# seccomp allowlist for sandbox child process
+SANDBOX_SYSCALL_ALLOW = [
+    'read', 'write', 'mmap', 'munmap', 'brk',
+    'mprotect',  # Required by Python allocator
+    'futex',     # Required by threading
+    'exit_group' # Graceful exit
+    # execve, socket, bind, connect -> BLOCKED -> SIGSYS
+]
+
+Step 4.2: Wasmtime Alternative Sandbox
+For environments where seccomp is unavailable (macOS, Windows), secure-torch provides a WASM-based sandbox using Wasmtime. The Pickle deserialization logic is compiled to WebAssembly and executed in a memory-isolated WASM instance with no host function imports — providing equivalent isolation on all platforms.
+
+
+
+Testing Strategy
+Test Suite Structure
+Instruct the QA Agent to maintain a four-tier test pyramid:
+
+~200 tests covering each parser, verifier, and policy evaluator in isolation. Run on every commit via Antigravity's CI integration. Unit Tests
+~50 tests using real model files from a private test fixture repository (safetensors, ONNX, legacy PyTorch .pth). Validate full load() path end-to-end. Integration Tests
+~30 tests — one per known ML loader CVE — that use the actual malicious payloads (sanitized) to verify secure-torch blocks them. This is the library's highest-value test category. CVE Regression Tests
+Hypothesis-based property testing on the Pickle AST walker and safetensors header parser. Antigravity's QA Agent runs fuzz sessions as background tasks during idle periods. Fuzzing
+
+CVE Regression Test Examples
+# Test: CVE-2024-5187 — ONNX metadata RCE
+def test_onnx_rce_blocked():
+    """Malicious ONNX model with __reduce__ in metadata should be blocked."""
+    with pytest.raises(st.UnsafeModelError):
+        st.load('fixtures/malicious_metadata.onnx')
+
+# Test: Pickle REDUCE with os.system
+def test_pickle_rce_blocked():
+    payload = build_pickle_payload('os', 'system', ['echo pwned'])
+    with pytest.raises(st.PickleExecutionError):
+        st.load(io.BytesIO(payload))
+
+Performance Benchmarks
+Security must not come at unacceptable performance cost. Target benchmarks (measured on A100 GPU instance within Antigravity Cloud Workstation):
+
+
+
+CI/CD Pipeline & Publishing
+GitHub Actions Workflow
+Instruct the DevOps Agent to generate the full CI/CD pipeline. Use Antigravity's Planning Mode for this task to get a reviewed task list before the agent writes the YAML files:
+
+# .github/workflows/ci.yml — Generated by Antigravity DevOps Agent
+name: CI
+on: [push, pull_request]
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ['3.10', '3.11', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - run: pip install poetry && poetry install
+      - run: poetry run pytest tests/ -v --cov=secure_torch
+      - run: poetry run mypy src/
+      - run: poetry run ruff check src/ tests/
+
+  security:
+    steps:
+      - run: pip install pip-audit bandit
+      - run: pip-audit  # Check own dependencies
+      - run: bandit -r src/  # Static security analysis
+
+PyPI Trusted Publishing Setup
+Use PyPI's OIDC Trusted Publishing (no stored API keys) to publish releases. This is configured once in the PyPI project settings to trust the GitHub Actions workflow:
+
+# .github/workflows/publish.yml
+name: Publish to PyPI
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    permissions:
+      id-token: write  # OIDC token for trusted publishing
+    steps:
+      - run: poetry build
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with: { repository-url: 'https://upload.pypi.org/legacy/' }
+
+The DevOps Agent should also configure Sigstore signing of the PyPI release artifacts — dogfooding secure-torch's own provenance verification on its own releases.
+
+Release Signing with Sigstore
+Every release of secure-torch is signed using Sigstore keyless signing in the GitHub Actions environment. The bundle is uploaded as a GitHub Release asset alongside the wheel. Users can verify with:
+
+# Verify a downloaded release
+$ cosign verify-blob \
+    --bundle secure_torch-1.0.0-py3-none-any.whl.sigstore \
+    --certificate-identity-regexp '.*github.com/your-org/secure-torch.*' \
+    --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \
+    secure_torch-1.0.0-py3-none-any.whl
+
+
+Community Launch Strategy
+Launch Checklist
+README with 30-second quick-start showing torch.load() → st.load() migration
+Security advisory blog post documenting the CVEs that secure-torch blocks, submitted to Hacker News and r/MachineLearning
+Hugging Face partnership: propose adding secure-torch as the recommended loader in the transformers model loading documentation
+CVE disclosure credit: coordinate responsible disclosure of any new vulnerabilities found during development with affected vendors (PyTorch, ONNX Runtime)
+Conference talk submission: NeurIPS 2026 Workshop on ML Security, PyCon Security Track, KubeCon Supply Chain Security track
+Integration PRs to popular frameworks: submit PRs to LangChain, LlamaIndex, and Haystack to use secure-torch for model loading
+
+Documentation (ReadTheDocs)
+The DevOps Agent generates and maintains documentation using Sphinx + ReadTheDocs. Key sections:
+
+Getting Started: migration guide from torch.load()
+Security Model: threat model, what secure-torch does and does not protect against
+Sigstore Integration: how to sign your own models for distribution
+SBOM Reference: SPDX AI Profile field definitions and policy examples
+Sandbox Configuration: seccomp profile customization for edge cases
+CVE Database: running list of vulnerabilities tested against
+
+
+Antigravity IDE Tips for This Project
+Effective Agent Prompts
+Based on Antigravity's agent-first design, the following prompt patterns yield the highest-quality results for a security library:
+
+
+
+Using Antigravity Artifacts for Security Review
+Every significant implementation task should produce an Antigravity Artifact — the structured deliverable containing the implementation plan, code diff, and test results. For a security library, use these artifacts as the basis for security review:
+
+Leave Google-Docs-style comments on the Artifact task list to flag security concerns before the agent starts coding
+Request screenshot Artifacts of the test suite passing (including CVE regression tests) before merging any sandbox-related changes
+Use the 'Request Review' policy for all changes to the sandbox/ and provenance/ directories — these are the highest-risk subsystems
+
+Parallel Agent Workflow
+The optimal Antigravity workflow for secure-torch is to keep 3–4 agents active simultaneously:
+
+
+
+Success Metrics
+
+
+
+
+secure-torch Implementation Plan
+Built with Google Antigravity IDE  |  Powered by Gemini 3 Pro  |  February 2026
+pip install secure-torch

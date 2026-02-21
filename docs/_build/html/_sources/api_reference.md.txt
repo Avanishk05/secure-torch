@@ -1,0 +1,145 @@
+# API Reference
+
+## `secure_torch.load`
+
+```python
+secure_torch.load(
+    f,
+    *,
+    require_signature: bool = False,
+    trusted_publishers: list[str] | None = None,
+    audit_only: bool = False,
+    max_threat_score: int = 20,
+    sandbox: bool = False,
+    sbom_path: str | None = None,
+    bundle_path: str | None = None,
+    pubkey_path: str | None = None,
+    map_location=None,
+    weights_only: bool = True,
+) -> Any | tuple[Any, ValidationReport]
+```
+
+**Parameters:**
+
+| Parameter | Type | Default | Description |
+|---|---|---|---|
+| `f` | `str \| Path \| IO` | — | Model file path or file-like object |
+| `require_signature` | `bool` | `False` | Raise `SignatureRequiredError` if no bundle found |
+| `trusted_publishers` | `list[str]` | `None` | Allowlist of trusted signer identities |
+| `audit_only` | `bool` | `False` | Load regardless of score; return `(model, report)` |
+| `max_threat_score` | `int` | `20` | Block if total score exceeds this |
+| `sandbox` | `bool` | `False` | Load in restricted subprocess |
+| `bundle_path` | `str` | `None` | Path to `.sigstore` or `.sig` file |
+| `pubkey_path` | `str` | `None` | Path to PEM public key (offline mode) |
+| `map_location` | — | `None` | Passed to `torch.load` |
+| `weights_only` | `bool` | `True` | Passed to `torch.load` |
+
+**Returns:** Model object, or `(model, ValidationReport)` if `audit_only=True`.
+
+**Raises:**
+- `UnsafePickleError` — dangerous opcode found
+- `UnsafeModelError` — threat score exceeds `max_threat_score`
+- `SignatureRequiredError` — `require_signature=True` and no bundle found
+- `UntrustedPublisherError` — signer not in `trusted_publishers`
+- `FormatError` — file format cannot be detected
+
+---
+
+## `secure_torch.save`
+
+```python
+secure_torch.save(obj, f, **kwargs) -> None
+```
+
+Pass-through to `torch.save`. Included for drop-in compatibility.
+
+---
+
+## `secure_torch.jit.load`
+
+```python
+secure_torch.jit.load(f, **kwargs) -> Any
+```
+
+Runs the full secure pipeline then loads with `torch.jit.load`.
+
+---
+
+## `secure_torch.hub.load`
+
+```python
+secure_torch.hub.load(repo_or_dir, model, **kwargs) -> Any
+```
+
+Wraps `torch.hub.load` with the secure pipeline.
+
+---
+
+## `secure_torch.from_pretrained`
+
+```python
+secure_torch.from_pretrained(model_name_or_path, **kwargs) -> Any
+```
+
+Wraps HuggingFace `from_pretrained` with the secure pipeline.
+
+---
+
+## `ValidationReport`
+
+```python
+@dataclass
+class ValidationReport:
+    path: str
+    format: ModelFormat
+    threat_score: int
+    threat_level: ThreatLevel
+    score_breakdown: dict[str, int]
+    findings: list[str]
+    warnings: list[str]
+    sha256: str
+    size_bytes: int
+    load_allowed: bool
+    sandbox_active: bool
+    provenance: ProvenanceRecord | None
+```
+
+---
+
+## `ProvenanceRecord`
+
+```python
+@dataclass
+class ProvenanceRecord:
+    verified: bool
+    signer: str | None = None
+    issuer: str | None = None
+    bundle_path: str | None = None
+    mode: str | None = None   # "sigstore" or "pubkey"
+    error: str | None = None
+```
+
+---
+
+## `ThreatLevel`
+
+```python
+class ThreatLevel(Enum):
+    SAFE     = 0
+    LOW      = 1
+    MEDIUM   = 2
+    HIGH     = 3
+    CRITICAL = 4
+```
+
+---
+
+## `ModelFormat`
+
+```python
+class ModelFormat(Enum):
+    SAFETENSORS = "safetensors"
+    PICKLE      = "pickle"
+    ONNX        = "onnx"
+    UNKNOWN     = "unknown"
+```

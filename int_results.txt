@@ -1,0 +1,42 @@
+============================= test session starts =============================
+platform win32 -- Python 3.10.0, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\avani\AppData\Local\Programs\Python\Python310\python.exe
+cachedir: .pytest_cache
+rootdir: C:\collection\Sectorch
+configfile: pyproject.toml
+plugins: anyio-4.9.0, cov-7.0.0
+collecting ... collected 17 items
+
+tests/integration/test_opa_runner.py::TestOPAPolicyRunnerFallback::test_pii_model_blocked_by_policy PASSED [  5%]
+tests/integration/test_opa_runner.py::TestOPAPolicyRunnerFallback::test_clean_model_passes_policy PASSED [ 11%]
+tests/integration/test_opa_runner.py::TestOPAPolicyRunnerFallback::test_missing_supplied_by_denied PASSED [ 17%]
+tests/integration/test_opa_runner.py::TestOPAPolicyRunnerFallback::test_gpl_dataset_blocked_in_production PASSED [ 23%]
+tests/integration/test_opa_runner.py::TestOPAPolicyRunnerFallback::test_gpl_dataset_allowed_in_dev PASSED [ 29%]
+tests/integration/test_opa_runner.py::TestOPAPolicyRunnerFallback::test_missing_policy_file_returns_error PASSED [ 35%]
+tests/integration/test_provenance.py::TestOfflinePubkeyVerification::test_valid_signature_verifies PASSED [ 41%]
+tests/integration/test_provenance.py::TestOfflinePubkeyVerification::test_tampered_model_fails_verification PASSED [ 47%]
+tests/integration/test_provenance.py::TestOfflinePubkeyVerification::test_wrong_key_fails_verification PASSED [ 52%]
+tests/integration/test_provenance.py::TestOfflinePubkeyVerification::test_missing_signature_file_returns_unverified PASSED [ 58%]
+tests/integration/test_provenance.py::TestOnlineSigstoreVerification::test_no_bundle_returns_unverified PASSED [ 64%]
+tests/integration/test_provenance.py::TestOnlineSigstoreVerification::test_sigstore_not_installed_returns_unverified PASSED [ 70%]
+tests/integration/test_provenance.py::TestRequireSignaturePipeline::test_require_signature_with_valid_offline_sig_passes PASSED [ 76%]
+tests/integration/test_sandbox.py::TestSubprocessSandbox::test_sandbox_loads_safetensors PASSED [ 82%]
+tests/integration/test_sandbox.py::TestSubprocessSandbox::test_sandbox_via_secure_load FAILED [ 88%]
+tests/integration/test_sandbox.py::TestSubprocessSandbox::test_sandbox_env_strips_proxy_vars PASSED [ 94%]
+tests/integration/test_sandbox.py::TestSubprocessSandbox::test_seccomp_apply_returns_bool SKIPPED [100%]
+
+================================== FAILURES ===================================
+_____________ TestSubprocessSandbox.test_sandbox_via_secure_load ______________
+tests\integration\test_sandbox.py:56: in test_sandbox_via_secure_load
+    model = st.load(tmp_path, sandbox=True)
+src\secure_torch\__init__.py:60: in load
+    return secure_load(
+src\secure_torch\loader.py:145: in secure_load
+    raise UnsafeModelError(
+E   secure_torch.exceptions.UnsafeModelError: Model blocked: threat score 40 > max 20.
+E   Breakdown: {'unsigned_model': 40}
+E   Use audit_only=True to load anyway and inspect the report.
+=========================== short test summary info ===========================
+FAILED tests/integration/test_sandbox.py::TestSubprocessSandbox::test_sandbox_via_secure_load - secure_torch.exceptions.UnsafeModelError: Model blocked: threat score 40 > max 20.
+Breakdown: {'unsigned_model': 40}
+Use audit_only=True to load anyway and inspect the report.
+=================== 1 failed, 15 passed, 1 skipped in 4.07s ===================

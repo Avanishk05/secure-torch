@@ -1,0 +1,33 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.10.0, pytest-9.0.2, pluggy-1.6.0
+rootdir: C:\collection\Sectorch
+configfile: pyproject.toml
+plugins: anyio-4.9.0, cov-7.0.0
+collected 24 items
+
+tests\unit\test_parsers.py FF.................                           [ 79%]
+tests\cve\test_cve_regressions.py FF...                                  [100%]
+
+================================== FAILURES ===================================
+_________ TestPickleOpcodeValidator.test_malicious_os_system_blocked __________
+tests\unit\test_parsers.py:69: in test_malicious_os_system_blocked
+    with pytest.raises(UnsafePickleError, match="Dangerous module"):
+E   Failed: DID NOT RAISE <class 'secure_torch.exceptions.UnsafePickleError'>
+_________ TestPickleOpcodeValidator.test_malicious_subprocess_blocked _________
+tests\unit\test_parsers.py:80: in test_malicious_subprocess_blocked
+    with pytest.raises(UnsafePickleError):
+E   Failed: DID NOT RAISE <class 'secure_torch.exceptions.UnsafePickleError'>
+__________ TestCVERegressions.test_cve_2023_44271_pickle_rce_blocked __________
+tests\cve\test_cve_regressions.py:43: in test_cve_2023_44271_pickle_rce_blocked
+    with pytest.raises(UnsafePickleError):
+E   Failed: DID NOT RAISE <class 'secure_torch.exceptions.UnsafePickleError'>
+_______ TestCVERegressions.test_cve_2023_32686_keras_lambda_rce_blocked _______
+tests\cve\test_cve_regressions.py:57: in test_cve_2023_32686_keras_lambda_rce_blocked
+    with pytest.raises(UnsafePickleError):
+E   Failed: DID NOT RAISE <class 'secure_torch.exceptions.UnsafePickleError'>
+=========================== short test summary info ===========================
+FAILED tests/unit/test_parsers.py::TestPickleOpcodeValidator::test_malicious_os_system_blocked
+FAILED tests/unit/test_parsers.py::TestPickleOpcodeValidator::test_malicious_subprocess_blocked
+FAILED tests/cve/test_cve_regressions.py::TestCVERegressions::test_cve_2023_44271_pickle_rce_blocked
+FAILED tests/cve/test_cve_regressions.py::TestCVERegressions::test_cve_2023_32686_keras_lambda_rce_blocked
+======================== 4 failed, 20 passed in 2.90s =========================

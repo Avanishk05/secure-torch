@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Secure AI Model Loader — Library Analysis</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Syne:wght@400;700;800&display=swap');
+
+  :root {
+    --bg: #09090e;
+    --surface: #11121a;
+    --surface2: #181926;
+    --border: #252638;
+    --accent: #00e5ff;
+    --accent2: #ff4d6d;
+    --accent3: #c8ff00;
+    --accent4: #7c3aed;
+    --text: #e8eaf6;
+    --muted: #6b6f8a;
+    --safe: #00e676;
+    --low: #69f0ae;
+    --medium: #ffca28;
+    --high: #ff6d00;
+    --critical: #ff1744;
+    --mono: 'IBM Plex Mono', monospace;
+    --display: 'Syne', sans-serif;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--display);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,229,255,0.015) 2px,
+      rgba(0,229,255,0.015) 4px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* ─── HEADER ─── */
+  header {
+    padding: 3rem 4rem 2rem;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  header::after {
+    content: '';
+    position: absolute;
+    top: -80px; right: -120px;
+    width: 400px; height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,229,255,0.07) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .header-badge {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--accent);
+    text-transform: uppercase;
+    background: rgba(0,229,255,0.08);
+    border: 1px solid rgba(0,229,255,0.3);
+    padding: 4px 12px;
+    border-radius: 2px;
+    display: inline-block;
+    margin-bottom: 1rem;
+  }
+  h1 {
+    font-size: clamp(2rem, 4vw, 3.2rem);
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    color: var(--text);
+  }
+  h1 span { color: var(--accent); }
+  .header-sub {
+    margin-top: 0.8rem;
+    color: var(--muted);
+    font-size: 0.95rem;
+    font-weight: 400;
+    max-width: 620px;
+    line-height: 1.6;
+  }
+  .header-meta {
+    margin-top: 1.5rem;
+    display: flex;
+    gap: 2rem;
+    flex-wrap: wrap;
+  }
+  .meta-chip {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .meta-chip b { color: var(--text); }
+  .meta-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent3);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  /* ─── NAV TABS ─── */
+  .tabs {
+    display: flex;
+    gap: 0;
+    padding: 0 4rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .tab {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    white-space: nowrap;
+    background: none;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  /* ─── MAIN CONTENT ─── */
+  main { padding: 3rem 4rem; }
+  .panel { display: none; }
+  .panel.active { display: block; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
+
+  /* ─── SECTION TITLE ─── */
+  .section-title {
+    font-size: 0.65rem;
+    font-family: var(--mono);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 1.5rem;
+  }
+
+  /* ─── GRID LAYOUTS ─── */
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; margin-bottom: 3rem; background: var(--border); border: 1px solid var(--border); }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; margin-bottom: 3rem; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 3rem; }
+  @media (max-width: 900px) {
+    .grid-4 { grid-template-columns: repeat(2, 1fr); }
+    .grid-3, .grid-2 { grid-template-columns: 1fr; }
+    header, .tabs, main { padding-left: 1.5rem; padding-right: 1.5rem; }
+  }
+
+  /* ─── STAT CARDS ─── */
+  .stat-card {
+    background: var(--surface);
+    padding: 1.8rem;
+  }
+  .stat-card .label {
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.8rem;
+  }
+  .stat-card .value {
+    font-size: 2.4rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.04em;
+  }
+  .stat-card .desc {
+    margin-top: 0.5rem;
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-family: var(--mono);
+  }
+  .c-accent { color: var(--accent); }
+  .c-accent2 { color: var(--accent2); }
+  .c-accent3 { color: var(--accent3); }
+  .c-accent4 { color: var(--accent4); }
+
+  /* ─── CARDS ─── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0;
+    padding: 1.8rem;
+  }
+  .card-title {
+    font-size: 0.75rem;
+    font-family: var(--mono);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 1.2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .card-title::before {
+    content: '';
+    width: 3px; height: 14px;
+    background: var(--accent);
+    display: inline-block;
+  }
+
+  /* ─── THREAT BAR ─── */
+  .threat-bar-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.7rem;
+  }
+  .threat-bar-label {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    width: 130px;
+    color: var(--text);
+    flex-shrink: 0;
+  }
+  .threat-bar-track {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 0;
+    overflow: hidden;
+  }
+  .threat-bar-fill {
+    height: 100%;
+    border-radius: 0;
+    transition: width 1.2s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .threat-bar-val {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    width: 40px;
+    text-align: right;
+    color: var(--muted);
+  }
+
+  /* ─── RISK MATRIX ─── */
+  .risk-matrix {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 3px;
+  }
+  .risk-cell {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 0.55rem;
+    text-align: center;
+    border-radius: 2px;
+    transition: transform 0.2s;
+    cursor: default;
+    position: relative;
+  }
+  .risk-cell:hover { transform: scale(1.08); z-index: 2; }
+  .risk-cell .cell-label { line-height: 1.3; }
+
+  /* ─── FLOW DIAGRAM ─── */
+  .flow {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    margin-bottom: 2rem;
+  }
+  .flow-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 120px;
+  }
+  .flow-box {
+    width: 100px;
+    padding: 0.7rem 0.5rem;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    line-height: 1.4;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    position: relative;
+  }
+  .flow-box .flow-icon {
+    font-size: 1.2rem;
+    display: block;
+    margin-bottom: 0.3rem;
+  }
+  .flow-box.highlight { border-color: var(--accent); background: rgba(0,229,255,0.05); }
+  .flow-box.warn { border-color: var(--high); background: rgba(255,109,0,0.05); }
+  .flow-box.ok { border-color: var(--safe); background: rgba(0,230,118,0.05); }
+  .flow-arrow {
+    width: 30px;
+    height: 2px;
+    background: var(--border);
+    position: relative;
+    flex-shrink: 0;
+  }
+  .flow-arrow::after {
+    content: '';
+    position: absolute;
+    right: -1px;
+    top: -3px;
+    border-left: 6px solid var(--border);
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+  }
+
+  /* ─── CODE BLOCK ─── */
+  .code-block {
+    background: #0d0e14;
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent4);
+    padding: 1.4rem 1.6rem;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    line-height: 1.8;
+    overflow-x: auto;
+    white-space: pre;
+    color: #c9d1d9;
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .code-block .kw { color: #ff7b72; }
+  .code-block .str { color: #a5d6ff; }
+  .code-block .cm { color: #8b949e; font-style: italic; }
+  .code-block .fn { color: #d2a8ff; }
+  .code-block .num { color: #79c0ff; }
+  .code-block .cls { color: #ffa657; }
+  .code-copy {
+    position: absolute;
+    top: 0.6rem; right: 0.8rem;
+    font-size: 0.6rem;
+    font-family: var(--mono);
+    color: var(--muted);
+    cursor: pointer;
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    letter-spacing: 0.1em;
+  }
+  .code-copy:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ─── FINDING ITEMS ─── */
+  .finding-list { display: flex; flex-direction: column; gap: 0.5rem; }
+  .finding-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.8rem;
+    padding: 0.7rem 1rem;
+    background: var(--surface2);
+    border-left: 3px solid var(--border);
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    line-height: 1.5;
+  }
+  .finding-item.critical { border-left-color: var(--critical); }
+  .finding-item.high { border-left-color: var(--high); }
+  .finding-item.medium { border-left-color: var(--medium); }
+  .finding-item.low { border-left-color: var(--safe); }
+  .finding-badge {
+    font-size: 0.55rem;
+    padding: 2px 6px;
+    border-radius: 2px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+  }
+  .critical .finding-badge { background: rgba(255,23,68,0.15); color: var(--critical); }
+  .high .finding-badge { background: rgba(255,109,0,0.15); color: var(--high); }
+  .medium .finding-badge { background: rgba(255,202,40,0.15); color: var(--medium); }
+  .low .finding-badge { background: rgba(0,230,118,0.12); color: var(--safe); }
+
+  /* ─── SBOM TABLE ─── */
+  .sbom-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 0.7rem; }
+  .sbom-table th {
+    text-align: left;
+    padding: 0.5rem 1rem;
+    background: var(--surface2);
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    font-weight: 400;
+    border-bottom: 1px solid var(--border);
+  }
+  .sbom-table td {
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+  .sbom-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .sbom-table .field-name { color: var(--accent); }
+  .sbom-table .field-val { color: var(--text); }
+  .sbom-table .field-desc { color: var(--muted); }
+
+  /* ─── INTERACTIVE SCANNER ─── */
+  .scanner-drop {
+    border: 2px dashed var(--border);
+    padding: 3rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-bottom: 1.5rem;
+    position: relative;
+  }
+  .scanner-drop:hover, .scanner-drop.dragover {
+    border-color: var(--accent);
+    background: rgba(0,229,255,0.03);
+  }
+  .scanner-drop .drop-icon { font-size: 2.5rem; margin-bottom: 0.8rem; }
+  .scanner-drop .drop-text {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .scanner-drop input[type=file] {
+    position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  }
+
+  .scan-result {
+    display: none;
+    animation: fadeIn 0.3s ease;
+  }
+  .scan-result.visible { display: block; }
+
+  .threat-gauge {
+    display: flex;
+    align-items: center;
+    gap: 2rem;
+    padding: 1.5rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+  }
+  .gauge-circle {
+    width: 90px;
+    height: 90px;
+    position: relative;
+    flex-shrink: 0;
+  }
+  .gauge-circle svg { transform: rotate(-90deg); }
+  .gauge-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .gauge-score { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.04em; }
+  .gauge-max { font-family: var(--mono); font-size: 0.55rem; color: var(--muted); }
+  .gauge-info .g-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.3rem;
+  }
+  .gauge-info .g-meta {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    line-height: 1.8;
+  }
+  .g-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    border-radius: 2px;
+    margin-top: 0.4rem;
+  }
+
+  /* ─── COMPARISON TABLE ─── */
+  .compare-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+  .compare-table th {
+    padding: 0.8rem 1rem;
+    text-align: left;
+    border-bottom: 2px solid var(--border);
+    font-family: var(--mono);
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .compare-table td {
+    padding: 0.8rem 1rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    vertical-align: middle;
+  }
+  .compare-table .tool-name { font-weight: 700; color: var(--text); }
+  .compare-table .check { color: var(--safe); font-size: 1rem; }
+  .compare-table .cross { color: var(--critical); font-size: 1rem; }
+  .compare-table .partial { color: var(--medium); font-size: 1rem; }
+  .compare-table tr.highlight-row td { background: rgba(0,229,255,0.04); }
+  .compare-table .tool-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.55rem;
+    padding: 2px 6px;
+    background: rgba(124,58,237,0.15);
+    color: var(--accent4);
+    border-radius: 2px;
+    margin-left: 6px;
+  }
+
+  /* ─── PROGRESS ANIMATE ─── */
+  .animate-bars .threat-bar-fill { width: 0 !important; }
+
+  /* ─── FOOTER ─── */
+  footer {
+    padding: 2rem 4rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+  footer .foot-l { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
+  footer .foot-r { font-family: var(--mono); font-size: 0.65rem; color: var(--muted); }
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(0,229,255,0.07);
+    border: 1px solid rgba(0,229,255,0.2);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    padding: 3px 10px;
+    border-radius: 100px;
+    letter-spacing: 0.08em;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-badge">● Security Analysis v1.0</div>
+  <h1>Secure AI Model <span>Loader</span></h1>
+  <p class="header-sub">
+    A unified, defense-in-depth library for loading safetensors, Pickle/PyTorch, and ONNX model files with automatic provenance checks, SPDX SBOM parsing, and seccomp sandboxing.
+  </p>
+  <div class="header-meta">
+    <div class="meta-chip"><div class="meta-dot"></div><b>Python 3.10+</b> · Apache 2.0</div>
+    <div class="meta-chip">🛡 <b>seccomp</b> · Sigstore · SPDX AI Profile</div>
+    <div class="meta-chip">📦 <b>3 formats</b> · safetensors / pickle / onnx</div>
+    <div class="meta-chip">⚡ <b>Zero-exec</b> static analysis pass</div>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('overview')">Overview</button>
+  <button class="tab" onclick="switchTab('architecture')">Architecture</button>
+  <button class="tab" onclick="switchTab('threats')">Threat Model</button>
+  <button class="tab" onclick="switchTab('sbom')">SBOM / Provenance</button>
+  <button class="tab" onclick="switchTab('scanner')">Live Scanner</button>
+  <button class="tab" onclick="switchTab('api')">API Reference</button>
+  <button class="tab" onclick="switchTab('compare')">Comparison</button>
+</div>
+
+<main>
+
+<!-- ═══════ OVERVIEW ═══════ -->
+<div class="panel active" id="panel-overview">
+  <div class="section-title">// library at a glance</div>
+
+  <div class="grid-4">
+    <div class="stat-card">
+      <div class="label">Formats supported</div>
+      <div class="value c-accent">3</div>
+      <div class="desc">safetensors · pickle · onnx</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Security layers</div>
+      <div class="value c-accent3">5</div>
+      <div class="desc">static · sbom · provenance · sandbox · audit</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">CVEs addressed</div>
+      <div class="value c-accent2">12+</div>
+      <div class="desc">RCE via pickle/onnx/metadata</div>
+    </div>
+    <div class="stat-card">
+      <div class="label">Threat score range</div>
+      <div class="value" style="color:var(--accent4)">0–100</div>
+      <div class="desc">block threshold configurable</div>
+    </div>
+  </div>
+
+  <div class="grid-3">
+    <div class="card">
+      <div class="card-title">Static Analysis</div>
+      <div class="finding-list">
+        <div class="finding-item critical">
+          <span class="finding-badge">CRITICAL</span>
+          Pickle GLOBAL/REDUCE opcode scan — catches <code>os.system</code>, <code>subprocess</code>, eval injection before execution
+        </div>
+        <div class="finding-item high">
+          <span class="finding-badge">HIGH</span>
+          SafeTensors header integrity — detects oversized headers, code injection in metadata fields, missing tensor descriptors
+        </div>
+        <div class="finding-item medium">
+          <span class="finding-badge">MEDIUM</span>
+          ONNX schema validation + custom op domain detection — custom domains may pull native shared libraries at runtime
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Runtime Defense</div>
+      <div class="finding-list">
+        <div class="finding-item critical">
+          <span class="finding-badge">SECCOMP</span>
+          Linux BPF filter applied before deserialization — blocks execve, socket, ptrace, and write syscalls
+        </div>
+        <div class="finding-item high">
+          <span class="finding-badge">WEIGHTS-ONLY</span>
+          PyTorch <code>torch.load(weights_only=True)</code> enforced — restricts unpickler to safe primitives only
+        </div>
+        <div class="finding-item medium">
+          <span class="finding-badge">AUDIT</span>
+          Append-only JSONL audit log for every validate/load/block event — tamper-evident trail
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Trust Chain</div>
+      <div class="finding-list">
+        <div class="finding-item low">
+          <span class="finding-badge">SIGSTORE</span>
+          Keyless Sigstore/cosign verification against Rekor transparency log — cryptographic provenance without key management
+        </div>
+        <div class="finding-item low">
+          <span class="finding-badge">SPDX</span>
+          SPDX AI Profile SBOM parsing — validates supplier, training data, sensitivity, energy, explainability fields
+        </div>
+        <div class="finding-item medium">
+          <span class="finding-badge">SHA-256</span>
+          File integrity hash recorded in audit log before any analysis begins — hash chain of custody
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Quickstart</div>
+    <div class="code-block"><button class="code-copy" onclick="copyCode(this)">COPY</button><span class="cm"># Install dependencies</span>
+pip install safetensors onnx sigstore
+
+<span class="cm"># Basic usage — validate + load with strict sandbox</span>
+<span class="kw">from</span> secure_model_loader <span class="kw">import</span> <span class="cls">SecureModelLoader</span>, <span class="cls">SandboxPolicy</span>
+
+loader = <span class="cls">SecureModelLoader</span>(
+    sandbox_policy=<span class="cls">SandboxPolicy</span>.STRICT,
+    require_provenance=<span class="kw">False</span>,    <span class="cm"># set True in production</span>
+    require_sbom=<span class="kw">False</span>,
+    max_threat_score=<span class="num">20</span>,
+)
+
+<span class="cm"># Step 1: Validate only (no execution risk)</span>
+report = loader.<span class="fn">validate</span>(<span class="str">"model.safetensors"</span>)
+<span class="fn">print</span>(loader.<span class="fn">summary</span>(report))
+
+<span class="cm"># Step 2: Load if score is acceptable</span>
+<span class="kw">if</span> report.load_allowed:
+    model = loader.<span class="fn">load</span>(<span class="str">"model.safetensors"</span>)
+
+<span class="cm"># CLI equivalent</span>
+python -m secure_model_loader model.pt --sandbox strict --max-score <span class="num">20</span> --load</div>
+  </div>
+</div>
+
+<!-- ═══════ ARCHITECTURE ═══════ -->
+<div class="panel" id="panel-architecture">
+  <div class="section-title">// validation pipeline</div>
+
+  <div class="flow">
+    <div class="flow-step">
+      <div class="flow-box highlight">
+        <span class="flow-icon">📂</span>
+        <div>Input<br>File</div>
+      </div>
+    </div>
+    <div class="flow-arrow"></div>
+    <div class="flow-step">
+      <div class="flow-box">
+        <span class="flow-icon">🔍</span>
+        <div>Format<br>Detect</div>
+      </div>
+    </div>
+    <div class="flow-arrow"></div>
+    <div class="flow-step">
+      <div class="flow-box warn">
+        <span class="flow-icon">🔬</span>
+        <div>Static<br>Analysis</div>
+      </div>
+    </div>
+    <div class="flow-arrow"></div>
+    <div class="flow-step">
+      <div class="flow-box">
+        <span class="flow-icon">📋</span>
+        <div>SBOM<br>Parse</div>
+      </div>
+    </div>
+    <div class="flow-arrow"></div>
+    <div class="flow-step">
+      <div class="flow-box">
+        <span class="flow-icon">🔏</span>
+        <div>Sigstore<br>Verify</div>
+      </div>
+    </div>
+    <div class="flow-arrow"></div>
+    <div class="flow-step">
+      <div class="flow-box warn">
+        <span class="flow-icon">⚖️</span>
+        <div>Score<br>Gate</div>
+      </div>
+    </div>
+    <div class="flow-arrow"></div>
+    <div class="flow-step">
+      <div class="flow-box warn">
+        <span class="flow-icon">🔒</span>
+        <div>seccomp<br>Sandbox</div>
+      </div>
+    </div>
+    <div class="flow-arrow"></div>
+    <div class="flow-step">
+      <div class="flow-box ok">
+        <span class="flow-icon">✅</span>
+        <div>Load<br>Model</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">Pickle Opcode Scanner</div>
+      <p style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);line-height:1.8;margin-bottom:1rem;">
+        Parses raw pickle bytes without executing them. Walks opcode stream looking for dangerous invocations before any Python interpreter processes the file.
+      </p>
+      <div class="finding-list">
+        <div class="finding-item critical"><span class="finding-badge">+40pts</span><code>GLOBAL / STACK_GLOBAL</code> with known-dangerous module (os, subprocess, sys, socket, ctypes…)</div>
+        <div class="finding-item high"><span class="finding-badge">+25pts</span><code>REDUCE</code> opcode — arbitrary callable execution path</div>
+        <div class="finding-item medium"><span class="finding-badge">+10pts</span><code>GLOBAL</code> with unrecognized module — not in safe-list</div>
+        <div class="finding-item medium"><span class="finding-badge">+10pts</span><code>INST</code> opcode — class instantiation side-effects possible</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">SafeTensors Header Validator</div>
+      <p style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);line-height:1.8;margin-bottom:1rem;">
+        Parses the 8-byte length-prefixed JSON header per the safetensors spec. Checks structural integrity and scans for embedded executable strings in metadata.
+      </p>
+      <div class="finding-list">
+        <div class="finding-item critical"><span class="finding-badge">+50pts</span>Code-like patterns in metadata: <code>eval(</code>, <code>exec(</code>, <code>import </code>, <code>os.system</code></div>
+        <div class="finding-item high"><span class="finding-badge">+30pts</span>Header &gt; 100 MB — potential DoS / header-bomb</div>
+        <div class="finding-item medium"><span class="finding-badge">+8pts</span>Tensor descriptor missing required fields (dtype, shape, data_offsets)</div>
+        <div class="finding-item low"><span class="finding-badge">+5pts</span>Metadata value &gt; 4096 chars — possible data exfil stash</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">ONNX Validator</div>
+      <p style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);line-height:1.8;margin-bottom:1rem;">
+        Uses the <code>onnx</code> Python package for full protobuf parse + schema check. Falls back to magic-byte detection when package absent.
+      </p>
+      <div class="finding-list">
+        <div class="finding-item high"><span class="finding-badge">+30pts</span>Custom op domains detected — may trigger native shared library loading at inference time</div>
+        <div class="finding-item high"><span class="finding-badge">+25pts</span>ONNX schema validation failure — malformed model could exploit parser</div>
+        <div class="finding-item medium"><span class="finding-badge">+10pts</span>Nested GRAPH attribute — encoded subgraph execution paths</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Threat Scoring Rubric</div>
+      <p style="font-family:var(--mono);font-size:0.72rem;color:var(--muted);line-height:1.8;margin-bottom:1.2rem;">Cumulative score 0–100 from all finding categories. Configurable gate threshold (default: 20).</p>
+      <div class="threat-bar-row">
+        <span class="threat-bar-label">SAFE (0)</span>
+        <div class="threat-bar-track"><div class="threat-bar-fill" data-w="3%" style="width:3%;background:var(--safe)"></div></div>
+        <span class="threat-bar-val" style="color:var(--safe)">0</span>
+      </div>
+      <div class="threat-bar-row">
+        <span class="threat-bar-label">LOW (1–15)</span>
+        <div class="threat-bar-track"><div class="threat-bar-fill" data-w="15%" style="width:15%;background:var(--low)"></div></div>
+        <span class="threat-bar-val" style="color:var(--low)">15</span>
+      </div>
+      <div class="threat-bar-row">
+        <span class="threat-bar-label">MEDIUM (16–35)</span>
+        <div class="threat-bar-track"><div class="threat-bar-fill" data-w="35%" style="width:35%;background:var(--medium)"></div></div>
+        <span class="threat-bar-val" style="color:var(--medium)">35</span>
+      </div>
+      <div class="threat-bar-row">
+        <span class="threat-bar-label">HIGH (36–60)</span>
+        <div class="threat-bar-track"><div class="threat-bar-fill" data-w="60%" style="width:60%;background:var(--high)"></div></div>
+        <span class="threat-bar-val" style="color:var(--high)">60</span>
+      </div>
+      <div class="threat-bar-row">
+        <span class="threat-bar-label">CRITICAL (61+)</span>
+        <div class="threat-bar-track"><div class="threat-bar-fill" data-w="90%" style="width:90%;background:var(--critical)"></div></div>
+        <span class="threat-bar-val" style="color:var(--critical)">90</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ THREATS ═══════ -->
+<div class="panel" id="panel-threats">
+  <div class="section-title">// known attack vectors & mitigations</div>
+
+  <div class="grid-2" style="margin-bottom:2rem;">
+    <div class="card">
+      <div class="card-title">CVE Reference: Real-World Incidents</div>
+      <div style="font-family:var(--mono);font-size:0.7rem;line-height:2;">
+        <div style="display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid var(--border);">
+          <span style="color:var(--critical)">CVE-2023-32686</span><span style="color:var(--muted)">Keras Lambda RCE via pickle</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid var(--border);">
+          <span style="color:var(--critical)">CVE-2022-36296</span><span style="color:var(--muted)">ONNX Runtime OOB write</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid var(--border);">
+          <span style="color:var(--high)">GHSA-v9fq-2296</span><span style="color:var(--muted)">HuggingFace Pickle injection</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid var(--border);">
+          <span style="color:var(--high)">CVE-2023-44271</span><span style="color:var(--muted)">PyTorch model RCE (Salesforce)</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:0.4rem 0;border-bottom:1px solid var(--border);">
+          <span style="color:var(--medium)">GHSA-3v9g-crmf</span><span style="color:var(--muted)">Apple CoreML metadata injection</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:0.4rem 0;">
+          <span style="color:var(--medium)">CVE-2024-5980</span><span style="color:var(--muted)">NVIDIA Triton ONNX custom op RCE</span>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Attack Surface by Format</div>
+      <div id="risk-matrix-wrap"></div>
+      <div style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:8px;font-family:var(--mono);font-size:0.58rem;">
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:rgba(255,23,68,0.7);display:inline-block;"></span>Critical risk</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:rgba(255,109,0,0.6);display:inline-block;"></span>High risk</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:rgba(255,202,40,0.5);display:inline-block;"></span>Medium risk</span>
+        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:rgba(0,230,118,0.3);display:inline-block;"></span>Low risk</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Attack Vector Deep-Dives</div>
+    <div id="attack-accordion"></div>
+  </div>
+</div>
+
+<!-- ═══════ SBOM / PROVENANCE ═══════ -->
+<div class="panel" id="panel-sbom">
+  <div class="section-title">// supply chain trust: spdx + sigstore</div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">SPDX AI Profile Fields Parsed</div>
+      <table class="sbom-table">
+        <thead>
+          <tr><th>Field</th><th>Description</th><th>Risk if Missing</th></tr>
+        </thead>
+        <tbody id="sbom-fields-table"></tbody>
+      </table>
+    </div>
+    <div class="card">
+      <div class="card-title">Sigstore Keyless Verification Flow</div>
+      <div style="font-family:var(--mono);font-size:0.7rem;line-height:2;color:var(--muted);">
+        <div style="padding:0.6rem;background:var(--surface2);margin-bottom:0.5rem;border-left:3px solid var(--accent);">
+          <b style="color:var(--text);">1. Model published</b><br>
+          Author triggers CI; OIDC token obtained from GitHub Actions / GitLab CI identity
+        </div>
+        <div style="padding:0.6rem;background:var(--surface2);margin-bottom:0.5rem;border-left:3px solid var(--accent4);">
+          <b style="color:var(--text);">2. Cosign / sigstore-python signs</b><br>
+          Ephemeral key pair generated; certificate issued by Fulcio CA binding key to OIDC identity
+        </div>
+        <div style="padding:0.6rem;background:var(--surface2);margin-bottom:0.5rem;border-left:3px solid var(--accent3);">
+          <b style="color:var(--text);">3. Rekor transparency log</b><br>
+          Signature + cert appended to append-only tamper-evident log; inclusion proof returned
+        </div>
+        <div style="padding:0.6rem;background:var(--surface2);border-left:3px solid var(--safe);">
+          <b style="color:var(--text);">4. Loader verifies</b><br>
+          <code>_verify_provenance()</code> checks: file hash matches, cert chains to Fulcio, entry present in Rekor
+        </div>
+      </div>
+
+      <div class="code-block" style="margin-top:1rem;font-size:0.65rem;"><span class="cm"># Sign your model before publishing</span>
+cosign sign-blob model.safetensors \
+  --bundle model.safetensors.sigstore \
+  --yes
+
+<span class="cm"># Or with Python sigstore SDK</span>
+<span class="kw">from</span> sigstore.sign <span class="kw">import</span> <span class="cls">Signer</span>
+signer = <span class="cls">Signer</span>.production()
+result = signer.<span class="fn">sign_artifact</span>(<span class="fn">open</span>(<span class="str">"model.safetensors"</span>, <span class="str">"rb"</span>).<span class="fn">read</span>())
+result.<span class="fn">to_bundle</span>().<span class="fn">to_file</span>(<span class="str">"model.safetensors.sigstore"</span>)</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Minimal SPDX AI Profile SBOM Example</div>
+    <div class="code-block" style="font-size:0.68rem;">{
+  <span class="str">"spdxVersion"</span>: <span class="str">"SPDX-2.3"</span>,
+  <span class="str">"name"</span>: <span class="str">"my-llm-model-1.0"</span>,
+  <span class="str">"dataLicense"</span>: <span class="str">"CC-BY-4.0"</span>,
+  <span class="str">"packages"</span>: [{
+    <span class="str">"name"</span>: <span class="str">"MyLLM"</span>,
+    <span class="str">"suppliedBy"</span>: <span class="str">"Organization: ACME Corp"</span>,
+    <span class="str">"typeOfModel"</span>: <span class="str">"large language model"</span>,
+    <span class="str">"informationAboutTraining"</span>: <span class="str">"Trained on filtered CommonCrawl + curated code"</span>,
+    <span class="str">"sensitivePersonalInformation"</span>: <span class="str">"NO"</span>,
+    <span class="str">"energyConsumption"</span>: <span class="str">"450 MWh (training)"</span>,
+    <span class="str">"modelDataPreprocessing"</span>: [<span class="str">"deduplication"</span>, <span class="str">"PII scrubbing"</span>],
+    <span class="str">"modelExplainability"</span>: [<span class="str">"SHAP"</span>, <span class="str">"attention-vis"</span>],
+    <span class="str">"hyperparameter"</span>: {
+      <span class="str">"parameters"</span>: <span class="str">"7B"</span>,
+      <span class="str">"context_window"</span>: <span class="str">"32768"</span>
+    }
+  }]
+}</div>
+  </div>
+</div>
+
+<!-- ═══════ LIVE SCANNER ═══════ -->
+<div class="panel" id="panel-scanner">
+  <div class="section-title">// interactive threat simulator</div>
+
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title">Simulate a model scan</div>
+    <p style="font-family:var(--mono);font-size:0.7rem;color:var(--muted);margin-bottom:1.5rem;line-height:1.6;">
+      Select a scenario to simulate the validation pipeline output for different model types and threat conditions.
+    </p>
+    <div style="display:flex;flex-wrap:wrap;gap:0.8rem;margin-bottom:1.5rem;" id="scenario-btns"></div>
+  </div>
+
+  <div class="scan-result" id="scan-result">
+    <div class="threat-gauge" id="gauge-block">
+      <div class="gauge-circle">
+        <svg width="90" height="90" viewBox="0 0 90 90">
+          <circle cx="45" cy="45" r="38" fill="none" stroke="var(--border)" stroke-width="7"/>
+          <circle id="gauge-arc" cx="45" cy="45" r="38" fill="none" stroke="var(--safe)" stroke-width="7"
+            stroke-dasharray="239" stroke-dashoffset="239" stroke-linecap="round"
+            style="transition:stroke-dashoffset 1s ease, stroke 0.5s ease"/>
+        </svg>
+        <div class="gauge-label">
+          <span class="gauge-score" id="gauge-score">0</span>
+          <span class="gauge-max">/100</span>
+        </div>
+      </div>
+      <div class="gauge-info">
+        <div class="g-name" id="gauge-name">—</div>
+        <div class="g-meta" id="gauge-meta"></div>
+        <span class="g-badge" id="gauge-badge"></span>
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title">Findings</div>
+        <div class="finding-list" id="scan-findings"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Validation Summary</div>
+        <div style="font-family:var(--mono);font-size:0.68rem;line-height:2;" id="scan-summary"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ API REFERENCE ═══════ -->
+<div class="panel" id="panel-api">
+  <div class="section-title">// public api</div>
+
+  <div class="card" style="margin-bottom:1.5rem;">
+    <div class="card-title">SecureModelLoader constructor</div>
+    <div class="code-block"><span class="cls">SecureModelLoader</span>(
+    sandbox_policy: <span class="cls">SandboxPolicy</span> = <span class="cls">SandboxPolicy</span>.STRICT,
+    require_provenance: <span class="kw">bool</span> = <span class="kw">False</span>,
+    require_sbom: <span class="kw">bool</span> = <span class="kw">False</span>,
+    max_threat_score: <span class="kw">int</span> = <span class="num">20</span>,
+    audit_log_path: <span class="cls">Optional</span>[<span class="cls">Path</span>] = <span class="kw">None</span>,
+)</div>
+    <table class="sbom-table">
+      <thead><tr><th>Parameter</th><th>Type</th><th>Description</th></tr></thead>
+      <tbody>
+        <tr><td class="field-name">sandbox_policy</td><td class="field-val">SandboxPolicy</td><td class="field-desc">seccomp level: NONE / PERMISSIVE / STRICT. STRICT blocks execve, socket, ptrace.</td></tr>
+        <tr><td class="field-name">require_provenance</td><td class="field-val">bool</td><td class="field-desc">If True, models without a valid Sigstore bundle are scored +25 and likely blocked.</td></tr>
+        <tr><td class="field-name">require_sbom</td><td class="field-val">bool</td><td class="field-desc">If True, models without a .spdx.json SBOM are scored +20.</td></tr>
+        <tr><td class="field-name">max_threat_score</td><td class="field-val">int</td><td class="field-desc">Maximum threat score (0-100) before load is blocked. Default 20 blocks anything above LOW.</td></tr>
+        <tr><td class="field-name">audit_log_path</td><td class="field-val">Optional[Path]</td><td class="field-desc">Append-only JSONL file recording every validate/load/block event with timestamps and hashes.</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <div class="card-title">.validate() → ValidationReport</div>
+      <div class="code-block" style="font-size:0.68rem;">report = loader.<span class="fn">validate</span>(
+    model_path: <span class="kw">str</span> | <span class="cls">Path</span>,
+    sbom_path:   <span class="cls">Optional</span>[<span class="kw">str</span> | <span class="cls">Path</span>] = <span class="kw">None</span>,
+    bundle_path: <span class="cls">Optional</span>[<span class="kw">str</span> | <span class="cls">Path</span>] = <span class="kw">None</span>,
+) -> <span class="cls">ValidationReport</span></div>
+      <p style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);line-height:1.7;">Runs all static analysis passes. <b style="color:var(--text);">Does not load or execute the model.</b> Safe to call in any context. Returns a <code>ValidationReport</code> dataclass with threat_score, findings, sbom, provenance, and load_allowed fields.</p>
+    </div>
+    <div class="card">
+      <div class="card-title">.load() → model object</div>
+      <div class="code-block" style="font-size:0.68rem;">model = loader.<span class="fn">load</span>(
+    model_path: <span class="kw">str</span> | <span class="cls">Path</span>,
+    sbom_path:   <span class="cls">Optional</span>[...] = <span class="kw">None</span>,
+    bundle_path: <span class="cls">Optional</span>[...] = <span class="kw">None</span>,
+    force: <span class="kw">bool</span> = <span class="kw">False</span>,   <span class="cm"># bypass gate — research only</span>
+) -> <span class="cls">Any</span>  <span class="cm"># dict|onnx.ModelProto|torch state_dict</span></div>
+      <p style="font-family:var(--mono);font-size:0.68rem;color:var(--muted);line-height:1.7;">Calls <code>validate()</code> first, then applies seccomp sandbox, then dispatches to format-specific loader. Raises <code>RuntimeError</code> if validation fails and <code>force=False</code>.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">CLI</div>
+    <div class="code-block"><span class="cm"># Validate only</span>
+python secure_model_loader.py model.safetensors --sandbox strict --max-score <span class="num">20</span>
+
+<span class="cm"># Validate + load with SBOM and bundle</span>
+python secure_model_loader.py model.pt \
+  --sbom model.spdx.json \
+  --bundle model.pt.sigstore \
+  --require-provenance \
+  --require-sbom \
+  --sandbox strict \
+  --load
+
+<span class="cm"># Output JSON report</span>
+python secure_model_loader.py model.onnx --json > report.json
+
+<span class="cm"># Exit codes: 0 = allowed, 1 = blocked/error</span></div>
+  </div>
+</div>
+
+<!-- ═══════ COMPARISON ═══════ -->
+<div class="panel" id="panel-compare">
+  <div class="section-title">// comparison with existing tools</div>
+
+  <div class="card">
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>Tool</th>
+          <th>Pickle scan</th>
+          <th>SafeTensors</th>
+          <th>ONNX check</th>
+          <th>Provenance</th>
+          <th>SBOM/SPDX</th>
+          <th>Sandboxing</th>
+          <th>Audit log</th>
+          <th>Score gate</th>
+        </tr>
+      </thead>
+      <tbody id="compare-table-body"></tbody>
+    </table>
+  </div>
+
+  <div class="grid-2" style="margin-top:1.5rem;">
+    <div class="card">
+      <div class="card-title">When to use each loader</div>
+      <div style="font-family:var(--mono);font-size:0.7rem;line-height:2;color:var(--muted);">
+        <div style="color:var(--text);margin-bottom:0.3rem;">✦ <b>torch.load(weights_only=True)</b></div>
+        Adequate for trusted, in-house PyTorch checkpoints where you control the source.<br><br>
+        <div style="color:var(--text);margin-bottom:0.3rem;">✦ <b>safetensors.safe_open</b></div>
+        Good for tensor-only files; no pickle execution. Use this + our header validator.<br><br>
+        <div style="color:var(--text);margin-bottom:0.3rem;">✦ <b>onnxruntime.InferenceSession</b></div>
+        Fine for inference, but doesn't validate custom ops or provenance before loading.<br><br>
+        <div style="color:var(--text);margin-bottom:0.3rem;">✦ <b>SecureModelLoader (this library)</b></div>
+        Use when loading models from third parties, HuggingFace Hub, or in CI/CD pipelines where you cannot vouch for the model source.
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Recommended deployment config</div>
+      <div class="code-block" style="font-size:0.65rem;"><span class="cm"># Production: full trust chain required</span>
+loader = <span class="cls">SecureModelLoader</span>(
+    sandbox_policy=<span class="cls">SandboxPolicy</span>.STRICT,
+    require_provenance=<span class="kw">True</span>,
+    require_sbom=<span class="kw">True</span>,
+    max_threat_score=<span class="num">0</span>,          <span class="cm"># zero tolerance</span>
+    audit_log_path=<span class="cls">Path</span>(<span class="str">"/var/log/model-loader.jsonl"</span>),
+)
+
+<span class="cm"># Dev/staging: relaxed but sandboxed</span>
+loader = <span class="cls">SecureModelLoader</span>(
+    sandbox_policy=<span class="cls">SandboxPolicy</span>.PERMISSIVE,
+    require_provenance=<span class="kw">False</span>,
+    require_sbom=<span class="kw">False</span>,
+    max_threat_score=<span class="num">35</span>,         <span class="cm"># allow medium</span>
+)</div>
+    </div>
+  </div>
+</div>
+
+</main>
+
+<footer>
+  <div class="foot-l">secure_model_loader.py · Apache 2.0 · Python 3.10+</div>
+  <div class="foot-r">
+    <span class="pill">🔒 seccomp</span>
+    <span class="pill">📋 SPDX AI Profile</span>
+    <span class="pill">🔏 Sigstore</span>
+  </div>
+</footer>
+
+<script>
+// ─── Tab navigation ───────────────────────────────────────────────────────
+function switchTab(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('panel-' + id).classList.add('active');
+}
+
+function copyCode(btn) {
+  const block = btn.parentElement;
+  const text = block.innerText.replace('COPY','').trim();
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'COPIED';
+    setTimeout(() => btn.textContent = 'COPY', 1500);
+  });
+}
+
+// ─── SBOM fields ─────────────────────────────────────────────────────────
+const sbomFields = [
+  ['spdxVersion', 'SPDX spec version', 'Cannot validate SBOM format compliance'],
+  ['name', 'Package / model name', 'Cannot link SBOM to artifact'],
+  ['suppliedBy', 'Publisher organization', 'No accountability for supply chain'],
+  ['typeOfModel', 'Architecture type (LLM, CNN…)', 'Cannot apply format-specific controls'],
+  ['sensitivePersonalInformation', 'PII in training data', 'Unknown privacy risk'],
+  ['informationAboutTraining', 'Training data description', 'Cannot audit for poisoning risk'],
+  ['modelDataPreprocessing', 'Data cleaning steps applied', 'Unknown data quality/bias'],
+  ['modelExplainability', 'Explainability methods available', 'Cannot audit model decisions'],
+  ['energyConsumption', 'Training energy usage', 'Cannot assess environmental cost'],
+  ['hyperparameter', 'Key model hyperparameters', 'Cannot reproduce or audit training'],
+];
+
+document.getElementById('sbom-fields-table').innerHTML = sbomFields.map(([f,d,r]) =>
+  `<tr><td class="field-name">${f}</td><td class="field-val">${d}</td><td class="field-desc">${r}</td></tr>`
+).join('');
+
+// ─── Risk matrix ─────────────────────────────────────────────────────────
+const riskData = [
+  // [label, color, tooltip]
+  ['Pickle\nRCE', 'rgba(255,23,68,0.75)', 'Arbitrary code via GLOBAL+REDUCE opcodes'],
+  ['ONNX\nCustom Op', 'rgba(255,109,0,0.65)', 'Native lib loading via custom domains'],
+  ['ST\nMetadata', 'rgba(255,202,40,0.55)', 'Code injection in safetensors __metadata__'],
+  ['ONNX\nSubgraph', 'rgba(255,202,40,0.45)', 'Nested GRAPH attribute execution paths'],
+  ['ST\nHeader DoS', 'rgba(0,230,118,0.3)', 'Oversized header causes memory exhaustion'],
+];
+const wrap = document.getElementById('risk-matrix-wrap');
+const matrix = document.createElement('div');
+matrix.className = 'risk-matrix';
+riskData.forEach(([label, color, tip]) => {
+  const cell = document.createElement('div');
+  cell.className = 'risk-cell';
+  cell.style.background = color;
+  cell.title = tip;
+  cell.innerHTML = `<span class="cell-label">${label}</span>`;
+  matrix.appendChild(cell);
+});
+wrap.appendChild(matrix);
+
+// ─── Attack accordion ────────────────────────────────────────────────────
+const attacks = [
+  {
+    title: 'Pickle RCE via torch.load()',
+    sev: 'CRITICAL',
+    detail: `When <code>torch.load()</code> is called without <code>weights_only=True</code>, the Python pickle deserializer can execute arbitrary code during unpickling. An attacker embeds a GLOBAL opcode referencing <code>os.system</code> or <code>subprocess.Popen</code>, which is called the moment the file is loaded.\n\n<b>Mitigation:</b> _scan_pickle_opcodes() walks the opcode stream before execution. SecureModelLoader always calls <code>torch.load(weights_only=True)</code>, restricting the unpickler to safe primitives (tensors, dicts, lists, numbers).`,
+  },
+  {
+    title: 'ONNX Custom Op / Shared Library Loading',
+    sev: 'HIGH',
+    detail: `ONNX models can declare custom operator domains. When the ONNX runtime loads such a model, it may attempt to load a native shared library (<code>.so</code>/<code>.dll</code>) matching the domain. A malicious model can embed a path to a crafted library, achieving code execution at inference time.\n\n<b>Mitigation:</b> _validate_onnx() detects non-standard opset domains and scores them HIGH. seccomp STRICT policy blocks dlopen-equivalent syscalls.`,
+  },
+  {
+    title: 'SafeTensors Metadata Code Injection',
+    sev: 'HIGH',
+    detail: `SafeTensors is designed to be safe, but the <code>__metadata__</code> header is a free-form JSON dict. Some downstream consumers eval or exec metadata values (e.g., to recover Python objects). An attacker can place <code>eval()</code> strings there.\n\n<b>Mitigation:</b> _validate_safetensors() scans all metadata values for code-like patterns. Any match adds 50 to the threat score, exceeding the default gate threshold immediately.`,
+  },
+  {
+    title: 'Supply Chain / Model Substitution',
+    sev: 'MEDIUM',
+    detail: `A valid model file can be silently substituted during download or storage. Without a cryptographic hash or signature, the loader has no way to detect tampering.\n\n<b>Mitigation:</b> SHA-256 is computed and logged before any analysis. Sigstore bundles provide a cryptographic attestation tied to the CI identity that published the model, making substitution detectable even if the attacker controls the hosting.`,
+  },
+];
+document.getElementById('attack-accordion').innerHTML = attacks.map((a, i) => `
+  <div style="border-bottom:1px solid var(--border);">
+    <button onclick="toggleAcc(${i})" style="width:100%;text-align:left;padding:1rem;background:none;border:none;cursor:pointer;font-family:var(--mono);font-size:0.72rem;color:var(--text);display:flex;justify-content:space-between;align-items:center;">
+      <span>
+        <span style="background:${a.sev==='CRITICAL'?'rgba(255,23,68,0.15)':a.sev==='HIGH'?'rgba(255,109,0,0.12)':'rgba(255,202,40,0.1)'};color:${a.sev==='CRITICAL'?'var(--critical)':a.sev==='HIGH'?'var(--high)':'var(--medium)'};padding:2px 8px;border-radius:2px;font-size:0.58rem;margin-right:0.8rem;">${a.sev}</span>
+        ${a.title}
+      </span>
+      <span id="acc-arrow-${i}" style="color:var(--muted)">▶</span>
+    </button>
+    <div id="acc-body-${i}" style="display:none;padding:0 1rem 1rem;font-family:var(--mono);font-size:0.68rem;color:var(--muted);line-height:1.8;">${a.detail.replace(/\n/g,'<br>')}</div>
+  </div>
+`).join('');
+
+function toggleAcc(i) {
+  const body = document.getElementById('acc-body-' + i);
+  const arrow = document.getElementById('acc-arrow-' + i);
+  const open = body.style.display !== 'none';
+  body.style.display = open ? 'none' : 'block';
+  arrow.textContent = open ? '▶' : '▼';
+}
+
+// ─── Scanner scenarios ────────────────────────────────────────────────────
+const scenarios = [
+  {
+    label: '✅ Clean safetensors',
+    score: 0, level: 'SAFE', levelColor: 'var(--safe)',
+    name: 'bert-base.safetensors',
+    meta: 'Format: safetensors\nSize: 438 MB\nSHA-256: a3f8d2…\nProvenance: ✗ (bundle missing)\nSBOM: ✗',
+    findings: [],
+    summary: {
+      'Format': 'safetensors',
+      'Tensors': '199 validated',
+      'Header size': '14,832 bytes',
+      'Metadata entries': '3 (clean)',
+      'Load allowed': '✅ YES',
+      'Sandbox': 'STRICT (seccomp active)',
+    }
+  },
+  {
+    label: '⚠️ Suspicious pickle',
+    score: 55, level: 'HIGH', levelColor: 'var(--high)',
+    name: 'custom-model.bin',
+    meta: 'Format: pickle/PyTorch\nSize: 1.2 GB\nSHA-256: 7c3e1a…\nProvenance: ✗\nSBOM: ✗',
+    findings: [
+      {sev:'medium', text:'[MEDIUM] Unknown module in GLOBAL: custom_ops._C'},
+      {sev:'high', text:'[HIGH] REDUCE opcode detected (arbitrary callable execution)'},
+      {sev:'medium', text:'[MEDIUM] Unknown module in GLOBAL: _custom_backend.load'},
+    ],
+    summary: {
+      'Format': 'pickle (PyTorch zip)',
+      'GLOBAL opcodes scanned': '23',
+      'Dangerous ops found': '3',
+      'Load allowed': '❌ BLOCKED (score > 20)',
+      'Sandbox': 'STRICT (would apply)',
+    }
+  },
+  {
+    label: '🔴 Malicious ONNX',
+    score: 85, level: 'CRITICAL', levelColor: 'var(--critical)',
+    name: 'model.onnx',
+    meta: 'Format: ONNX\nSize: 298 MB\nSHA-256: f9a2c4…\nProvenance: ✗\nSBOM: ✗',
+    findings: [
+      {sev:'critical', text:'[CRITICAL] Custom ONNX op domains: ["com.evil.ops"] — may load native libs'},
+      {sev:'high', text:'[HIGH] ONNX schema validation failed: unexpected node type in graph'},
+      {sev:'medium', text:'[MEDIUM] Node \'CustomKernel\' contains nested GRAPH attribute'},
+    ],
+    summary: {
+      'Format': 'ONNX protobuf',
+      'IR version': '8',
+      'Custom op domains': 'com.evil.ops',
+      'Schema valid': '❌ NO',
+      'Load allowed': '❌ BLOCKED (score=85)',
+      'Sandbox': 'STRICT (would apply)',
+    }
+  },
+  {
+    label: '🔏 Verified + SBOM',
+    score: 0, level: 'SAFE', levelColor: 'var(--safe)',
+    name: 'llama-7b.safetensors',
+    meta: 'Format: safetensors\nSize: 13.5 GB\nSHA-256: b8f3e9…\nProvenance: ✅ VERIFIED (github-actions@pkg.dev)\nSBOM: ✅ SPDX-2.3',
+    findings: [],
+    summary: {
+      'Format': 'safetensors',
+      'Provenance': '✅ Rekor log entry verified',
+      'Signer': 'github-actions@pkg.github.dev',
+      'SBOM supplier': 'Meta AI',
+      'SBOM sensitivity': 'NO PII',
+      'Load allowed': '✅ YES',
+      'Sandbox': 'STRICT (seccomp active)',
+    }
+  },
+];
+
+const btns = document.getElementById('scenario-btns');
+scenarios.forEach((s, i) => {
+  const b = document.createElement('button');
+  b.style.cssText = 'font-family:var(--mono);font-size:0.68rem;padding:0.6rem 1.2rem;border:1px solid var(--border);background:var(--surface2);color:var(--text);cursor:pointer;';
+  b.textContent = s.label;
+  b.onmouseenter = () => b.style.borderColor = 'var(--accent)';
+  b.onmouseleave = () => b.style.borderColor = 'var(--border)';
+  b.onclick = () => runScenario(s);
+  btns.appendChild(b);
+});
+
+function runScenario(s) {
+  const result = document.getElementById('scan-result');
+  result.classList.remove('visible');
+  setTimeout(() => {
+    // Gauge
+    const arc = document.getElementById('gauge-arc');
+    const circumference = 239;
+    const offset = circumference - (s.score / 100) * circumference;
+    arc.style.strokeDashoffset = circumference;
+    arc.style.stroke = s.levelColor;
+    document.getElementById('gauge-score').textContent = s.score;
+    document.getElementById('gauge-score').style.color = s.levelColor;
+    document.getElementById('gauge-name').textContent = s.name;
+    document.getElementById('gauge-meta').innerHTML = s.meta.replace(/\n/g, '<br>');
+    const badge = document.getElementById('gauge-badge');
+    badge.textContent = s.level;
+    badge.style.background = s.levelColor + '22';
+    badge.style.color = s.levelColor;
+    badge.style.border = '1px solid ' + s.levelColor + '55';
+
+    // Findings
+    const findingsEl = document.getElementById('scan-findings');
+    if (s.findings.length === 0) {
+      findingsEl.innerHTML = '<div class="finding-item low"><span class="finding-badge">CLEAN</span>No security findings detected</div>';
+    } else {
+      findingsEl.innerHTML = s.findings.map(f =>
+        `<div class="finding-item ${f.sev}"><span class="finding-badge">${f.sev.toUpperCase()}</span>${f.text}</div>`
+      ).join('');
+    }
+
+    // Summary
+    const summaryEl = document.getElementById('scan-summary');
+    summaryEl.innerHTML = Object.entries(s.summary).map(([k,v]) =>
+      `<div style="display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,0.04);padding:0.3rem 0;">
+        <span style="color:var(--muted)">${k}</span>
+        <span style="color:var(--text)">${v}</span>
+      </div>`
+    ).join('');
+
+    result.classList.add('visible');
+    setTimeout(() => { arc.style.strokeDashoffset = offset; }, 100);
+  }, 150);
+}
+
+// ─── Comparison table ─────────────────────────────────────────────────────
+const tools = [
+  ['SecureModelLoader', true, true, true, true, true, true, true, true, true],
+  ['torch.load (weights_only)', false, true, false, false, false, false, false, false, false],
+  ['safetensors.safe_open', false, false, true, false, false, false, false, false, false],
+  ['onnxruntime', false, false, false, true, false, false, false, false, false],
+  ['picklescan (Protect AI)', false, true, false, false, false, false, false, false, false],
+  ['model-scanner (HF)', false, true, true, true, false, false, false, false, false],
+  ['cosign (standalone)', false, false, false, false, true, false, false, false, false],
+];
+
+const cols = ['Pickle scan', 'SafeTensors', 'ONNX check', 'Provenance', 'SBOM/SPDX', 'Sandboxing', 'Audit log', 'Score gate'];
+
+document.getElementById('compare-table-body').innerHTML = tools.map(([name, isThis, ...checks]) => {
+  const rowClass = isThis ? ' class="highlight-row"' : '';
+  const cells = checks.map(v =>
+    `<td>${v ? '<span class="check">✓</span>' : '<span class="cross">✗</span>'}</td>`
+  ).join('');
+  return `<tr${rowClass}><td class="tool-name">${name}${isThis ? '<span class="tool-tag">THIS</span>' : ''}</td>${cells}</tr>`;
+}).join('');
+</script>
+</body>
+</html>

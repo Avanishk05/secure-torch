@@ -1,0 +1,58 @@
+name: Security Scan
+
+on:
+  schedule:
+    - cron: "0 3 * * 1"   # Every Monday 03:00 UTC
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write  # For SARIF upload
+
+jobs:
+  bandit:
+    name: Bandit SAST
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install bandit
+        run: pip install bandit[sarif]
+
+      - name: Run Bandit (SARIF output)
+        run: |
+          bandit -r src/secure_torch/ -f sarif -o bandit.sarif || true
+
+      - name: Upload SARIF to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: bandit.sarif
+
+  pip-audit:
+    name: pip-audit CVE Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pip-audit
+        run: pip install pip-audit
+
+      - name: Audit dependencies
+        run: pip-audit --format json --output pip-audit.json || true
+
+      - name: Upload audit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: pip-audit-results
+          path: pip-audit.json
