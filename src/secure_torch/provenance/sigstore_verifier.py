@@ -17,7 +17,6 @@ from secure_torch.models import ProvenanceRecord
 
 
 class SigstoreVerifier:
-
     def verify_with_sigstore(
         self,
         model_path: Path,
@@ -86,9 +85,7 @@ class SigstoreVerifier:
         from cryptography.hazmat.primitives.asymmetric import ec, ed25519, padding, rsa
 
         try:
-            pubkey = serialization.load_pem_public_key(
-                Path(pubkey_path).read_bytes()
-            )
+            pubkey = serialization.load_pem_public_key(Path(pubkey_path).read_bytes())
 
             signature = Path(signature_path).read_bytes()
             data = Path(model_path).read_bytes()
@@ -100,7 +97,8 @@ class SigstoreVerifier:
                     pubkey.verify(signature, data, padding.PKCS1v15(), hashes.SHA256())
                 except Exception:
                     pubkey.verify(
-                        signature, data,
+                        signature,
+                        data,
                         padding.PSS(
                             mgf=padding.MGF1(hashes.SHA256()),
                             salt_length=padding.PSS.MAX_LENGTH,
