@@ -241,6 +241,9 @@ pip install secure-torch[onnx]
 # With Sigstore online verification
 pip install secure-torch[sigstore]
 
+# With offline public-key verification
+pip install secure-torch[crypto]
+
 # Everything
 pip install secure-torch[all]
 ```
@@ -252,7 +255,8 @@ pip install secure-torch[all]
 ```bash
 git clone https://github.com/Avanishk05/secure-torch
 cd secure-torch
-pip install -e ".[dev]"
+pip install -e .
+pip install pytest pytest-cov mypy ruff bandit
 pytest tests/
 ```
 

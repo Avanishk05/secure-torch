@@ -3,7 +3,7 @@
 ## Requirements
 
 - Python 3.10, 3.11, or 3.12
-- No mandatory runtime dependencies beyond the standard library
+- Core runtime dependencies (`safetensors`, `packaging`, `numpy`) are installed automatically
 
 ## Install from PyPI
 
@@ -32,10 +32,15 @@ pip install secure-torch[all]
 ```bash
 git clone https://github.com/Avanishk05/secure-torch
 cd secure-torch
-pip install -e ".[dev]"
+pip install -e .
+pip install pytest pytest-cov mypy ruff bandit
 ```
 
 ## Verify installation
+
+```bash
+secure-torch --version
+```
 
 ```python
 import secure_torch

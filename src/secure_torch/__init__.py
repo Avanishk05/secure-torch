@@ -8,6 +8,8 @@ Usage:
 
 from __future__ import annotations
 
+from importlib.metadata import PackageNotFoundError, version
+
 from secure_torch.exceptions import (
     SecurityError,
     SignatureRequiredError,
@@ -17,6 +19,11 @@ from secure_torch.exceptions import (
 )
 from secure_torch.loader import secure_load, secure_save
 from secure_torch.models import ModelFormat, ThreatLevel, ValidationReport
+
+try:
+    __version__ = version("secure-torch")
+except PackageNotFoundError:
+    __version__ = "0.0.0+local"
 
 
 def _raise_remote_security_not_supported(surface: str, **security_args) -> None:
@@ -172,6 +179,7 @@ def from_pretrained(
 
 
 __all__ = [
+    "__version__",
     "load",
     "save",
     "jit",
