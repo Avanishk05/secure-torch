@@ -17,8 +17,12 @@ import pytest
 
 
 def make_safetensors_file(metadata: dict = None) -> bytes:
-    header = {"__metadata__": metadata or {"model": "test"}}
+    """Create a minimal valid safetensors file with no tensors."""
+    header = {
+        "__metadata__": metadata or {"model": "test"}
+    }
     header_bytes = json.dumps(header).encode("utf-8")
+    # 8-byte length header + JSON header (no tensor data)
     return struct.pack("<Q", len(header_bytes)) + header_bytes
 
 
