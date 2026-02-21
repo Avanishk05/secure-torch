@@ -133,22 +133,11 @@ class TestStackGlobalOpcode:
             validate_pickle(payload, scorer)
 
     def test_stack_global_builtins_eval_blocked(self):
-        """
-        STACK_GLOBAL with builtins.eval: documents known nuance.
-        The validator checks the module name 'builtins' via STACK_GLOBAL,
-        which IS in SAFE_MODULES — so this payload is NOT hard-blocked.
-        The dangerous sub-function 'eval' is not separately tracked.
-        This test documents the current behavior: no UnsafePickleError raised.
-        A future improvement should add function-level blocking for builtins.eval.
-        """
+        """With the fix applied, STACK_GLOBAL with builtins+eval must block."""
         payload = make_stack_global_payload("builtins", "eval")
         scorer = ThreatScorer()
-        try:
+        with pytest.raises(UnsafePickleError, match="Dangerous callable"):
             validate_pickle(payload, scorer)
-            # Current behavior: no block raised for builtins.eval via STACK_GLOBAL
-        except UnsafePickleError:
-            pass  # Future improvement may block this — test remains valid
-
     def test_stack_global_nt_blocked(self):
         """STACK_GLOBAL referencing nt (Windows os alias) must be blocked."""
         payload = make_stack_global_payload("nt", "system")

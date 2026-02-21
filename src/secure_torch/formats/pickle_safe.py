@@ -119,25 +119,45 @@ def _walk_opcodes(data: bytes, scorer: ThreatScorer) -> None:
             if len(string_stack) > 4:
                 string_stack.pop(0)
 
-        # GLOBAL opcode: arg is "module name" as a single string
+        # GLOBAL opcode: arg is "module name" as a SPACE-SEPARATED string
+        # e.g. "builtins eval" or "os system"
         elif name == "GLOBAL":
-            module_name = str(arg) if arg else ""
+            raw = str(arg) if arg else ""
+            parts = raw.split(" ", 1)
+            module_name = parts[0] if parts else ""
+            func_name   = parts[1] if len(parts) > 1 else ""
+            dotted      = f"{module_name}.{func_name}" if func_name else module_name
             last_global = module_name
             _check_module_ref(module_name, pos, scorer)
+            # Also block the exact dotted form e.g. "builtins.eval" in DANGEROUS_MODULES
+            if func_name and dotted in DANGEROUS_MODULES:
+                raise UnsafePickleError(
+                    f"Dangerous callable at byte {pos}: '{dotted}'. "
+                    f"This pickle can execute arbitrary code."
+                )
             string_stack.clear()
 
-        # STACK_GLOBAL: pops (name, module) from stack — no arg
+        # STACK_GLOBAL: pops (module, name) from stack — no arg
         elif name == "STACK_GLOBAL":
             # Last two string pushes are (module, name) in that order
             if len(string_stack) >= 2:
                 module_name = string_stack[-2]
+                func_name   = string_stack[-1]
             elif len(string_stack) == 1:
                 module_name = string_stack[-1]
+                func_name   = ""
             else:
-                module_name = ""
+                module_name, func_name = "", ""
 
+            dotted = f"{module_name}.{func_name}" if func_name else module_name
             last_global = module_name
             _check_module_ref(module_name, pos, scorer)
+            # Also block the exact dotted sub-function e.g. "builtins.eval"
+            if func_name and dotted in DANGEROUS_MODULES:
+                raise UnsafePickleError(
+                    f"Dangerous callable at byte {pos}: '{dotted}'. "
+                    f"This pickle can execute arbitrary code."
+                )
             string_stack.clear()
 
         # REDUCE applies the last GLOBAL as a callable — high risk
