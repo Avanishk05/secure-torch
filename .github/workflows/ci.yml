@@ -61,8 +61,12 @@ jobs:
 
       - name: Install package and test deps
         run: |
+          # Install core runtime deps explicitly (poetry-core build backend does not
+          # expose [tool.poetry.dependencies] as PEP 508 Requires-Dist metadata,
+          # so pip install -e . alone leaves safetensors/numpy/packaging missing).
+          pip install safetensors>=0.4.0 numpy>=1.22 packaging>=23.0
           pip install -e .
-          pip install pytest pytest-cov cryptography
+          pip install pytest pytest-cov cryptography huggingface_hub
 
       - name: Run unit tests
         run: pytest tests/unit/ tests/cve/ -v --tb=short --cov=secure_torch --cov-report=xml
