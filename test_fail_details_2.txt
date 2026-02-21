@@ -1,0 +1,6 @@
+tests\integration\test_huggingface.py:26: in test_huggingface_patch_blocks_unsafe_model
+    huggingface_hub.file_download.hf_hub_download(repo_id="fake/repo", filename="malicious.bin")
+src\secure_torch\huggingface.py:157: in patched_hf_hub_download
+    raise UnsafeModelError(
+E   secure_torch.exceptions.UnsafeModelError: Hugging Face model C:\Users\Atharva\AppData\Local\Temp\pytest-of-Atharva\pytest-9\test_huggingface_patch_blocks_0\malicious.bin blocked: threat score 40 > max 10.
+E   Breakdown: {'unsigned_model': 40}

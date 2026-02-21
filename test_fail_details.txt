@@ -1,0 +1,6 @@
+tests\integration\test_huggingface.py:26: in test_huggingface_patch_blocks_unsafe_model
+    huggingface_hub.file_download.hf_hub_download(repo_id="fake/repo", filename="malicious.bin")
+src\secure_torch\huggingface.py:158: in patched_hf_hub_download
+    f"Hugging Face model {filename} blocked: threat score {scorer.total} > max {max_score}.\n"
+                          ^^^^^^^^
+E   NameError: name 'filename' is not defined

@@ -19,6 +19,7 @@ from secure_torch.exceptions import (
 )
 from secure_torch.loader import secure_load, secure_save
 from secure_torch.models import ModelFormat, ThreatLevel, ValidationReport
+from secure_torch.huggingface import patch_huggingface, unpatch_huggingface
 
 try:
     __version__ = version("secure-torch")
@@ -170,6 +171,12 @@ def from_pretrained(
         bundle_path=bundle_path,
         pubkey_path=pubkey_path,
     )
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.warning(
+        "For secure remote loading with huggingface, "
+        "call `secure_torch.patch_huggingface(**security_args)` before using transformers."
+    )
     try:
         from transformers import AutoModel
 
@@ -185,6 +192,8 @@ __all__ = [
     "jit",
     "hub",
     "from_pretrained",
+    "patch_huggingface",
+    "unpatch_huggingface",
     "ValidationReport",
     "ThreatLevel",
     "ModelFormat",

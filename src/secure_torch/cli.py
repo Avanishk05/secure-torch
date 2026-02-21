@@ -46,8 +46,8 @@ def _build_parser() -> argparse.ArgumentParser:
 def _report_to_dict(report: Any) -> dict[str, Any]:
     data = {
         "path": report.path,
-        "format": report.format.value,
-        "threat_level": report.threat_level.value,
+        "format": report.format.name if hasattr(report.format, "name") else str(report.format),
+        "threat_level": report.threat_level.name if hasattr(report.threat_level, "name") else str(report.threat_level),
         "threat_score": report.threat_score,
         "score_breakdown": report.score_breakdown,
         "findings": report.findings,
@@ -78,6 +78,90 @@ def _report_to_dict(report: Any) -> dict[str, Any]:
     return data
 
 
+def _print_rich_report(report: Any) -> None:
+    try:
+        from rich.console import Console
+        from rich.panel import Panel
+        from rich.table import Table
+        from rich.text import Text
+    except ImportError:
+        print(report.summary())
+        return
+
+    console = Console()
+    
+    # Determine Threat Color
+    # ThreatLevel ranges conceptually: SAFE (0), LOW (1-19), MEDIUM (20-49), HIGH (50-79), CRITICAL (80+)
+    score = report.threat_score
+    if score == 0:
+        level_color = "green"
+    elif score < 20:
+        level_color = "yellow"
+    elif score < 50:
+        level_color = "orange3"
+    elif score < 80:
+        level_color = "red"
+    else:
+        level_color = "bold red"
+        
+    tl_name = report.threat_level.name if hasattr(report.threat_level, "name") else str(report.threat_level)
+
+    header_text = Text()
+    header_text.append(f"Model: {report.path}\n", style="bold")
+    header_text.append(f"Format: {report.format.name if hasattr(report.format, 'name') else str(report.format)}\n")
+    header_text.append(f"Threat Score: {score} ", style="bold")
+    header_text.append(f"[{tl_name}]\n", style=level_color)
+    header_text.append(f"Status: ", style="bold")
+    if report.load_allowed:
+        header_text.append("ALLOWED\n", style="bold green")
+    else:
+        header_text.append("BLOCKED\n", style="bold red")
+
+    console.print(Panel(header_text, title="Secure-Torch Security Report", border_style=level_color))
+
+    # Breakdown Table
+    if report.score_breakdown:
+        table = Table(title="Threat Score Breakdown", show_header=True, header_style="bold magenta")
+        table.add_column("Category", style="cyan")
+        table.add_column("Score", justify="right", style="red")
+        
+        for key, val in report.score_breakdown.items():
+            table.add_row(str(key), str(val))
+            
+        console.print(table)
+        
+    # Provenance
+    if report.provenance:
+        prov_text = Text()
+        if report.provenance.verified:
+            prov_text.append("✔ Signature Verified\n", style="bold green")
+            if report.provenance.signer:
+                prov_text.append(f"Signer: {report.provenance.signer}\n")
+            if report.provenance.issuer:
+                prov_text.append(f"Issuer: {report.provenance.issuer}")
+        else:
+            prov_text.append("✖ Signature Unverified\n", style="bold red")
+            if report.provenance.error:
+                prov_text.append(f"Error: {report.provenance.error}", style="red")
+                
+        console.print(Panel(prov_text, title="Provenance (Sigstore/Crypto)", border_style="blue"))
+        
+    # SBOM
+    if report.sbom:
+        sbom_text = Text()
+        sbom_text.append(f"Name: {report.sbom.name or 'Unknown'}\n")
+        sbom_text.append(f"Supplied By: {report.sbom.supplied_by or 'Unknown'}\n")
+        sbom_text.append(f"PII: {report.sbom.sensitive_pii or 'Not specified'}\n")
+        console.print(Panel(sbom_text, title="SBOM Verification", border_style="cyan"))
+
+    # Warnings
+    if report.warnings:
+        warn_text = Text()
+        for w in report.warnings:
+            warn_text.append(f"• {w}\n")
+        console.print(Panel(warn_text, title="Warnings", border_style="yellow"))
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
 
@@ -104,7 +188,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.json:
         print(json.dumps(_report_to_dict(report), indent=2, sort_keys=True))
     else:
-        print(report.summary())
+        _print_rich_report(report)
 
     return 0
 
