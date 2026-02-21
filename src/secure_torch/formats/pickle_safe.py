@@ -132,7 +132,7 @@ def _walk_opcodes(data: bytes, scorer: ThreatScorer) -> None:
             module = str(arg) if arg else ""
 
             if module in DANGEROUS_MODULES:
-                raise UnsafePickleError(f"Dangerous INST opcode")
+                raise UnsafePickleError("Dangerous INST opcode")
 
             scorer.add("pickle_inst_opcode", SCORE_PICKLE_INST_OPCODE)
 
