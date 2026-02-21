@@ -183,13 +183,10 @@ def _verify_signature(
     verifier = SigstoreVerifier()
 
     if bundle_path and Path(bundle_path).exists():
-
         if pubkey_path:
             provenance = verifier.verify_with_pubkey(path, bundle_path, pubkey_path)
         else:
-            provenance = verifier.verify_with_sigstore(
-                path, bundle_path, trusted_publishers
-            )
+            provenance = verifier.verify_with_sigstore(path, bundle_path, trusted_publishers)
 
         if require_signature and not provenance.verified:
             raise SignatureRequiredError("Signature verification failed")

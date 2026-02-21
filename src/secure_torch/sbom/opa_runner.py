@@ -22,7 +22,6 @@ from secure_torch.models import SBOMRecord
 
 
 class OPAPolicyRunner:
-
     def __init__(self, policy_path: str) -> None:
 
         self.policy_path: str = policy_path
@@ -64,14 +63,12 @@ class OPAPolicyRunner:
             return []
 
         with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
-
             json.dump(input_data, f)
             input_file = f.name
 
         opa_binary: str = self._opa_binary  # narrowed from Optional[str]
 
         try:
-
             result = subprocess.run(
                 [
                     opa_binary,
@@ -100,7 +97,6 @@ class OPAPolicyRunner:
             return parsed["result"][0]["expressions"][0]["value"]
 
         finally:
-
             os.unlink(input_file)
 
     def _evaluate_python_fallback(

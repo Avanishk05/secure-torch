@@ -22,45 +22,49 @@ from secure_torch.threat_score import (
     SCORE_PICKLE_INST_OPCODE,
 )
 
-SAFE_MODULES: frozenset[str] = frozenset({
-    "torch",
-    "torch.storage",
-    "torch._utils",
-    "torch.nn.modules",
-    "torch.nn.parameter",
-    "collections",
-    "collections.OrderedDict",
-    "_codecs",
-    "numpy",
-    "numpy.core.multiarray",
-    "__builtin__",
-    "builtins",
-})
+SAFE_MODULES: frozenset[str] = frozenset(
+    {
+        "torch",
+        "torch.storage",
+        "torch._utils",
+        "torch.nn.modules",
+        "torch.nn.parameter",
+        "collections",
+        "collections.OrderedDict",
+        "_codecs",
+        "numpy",
+        "numpy.core.multiarray",
+        "__builtin__",
+        "builtins",
+    }
+)
 
-DANGEROUS_MODULES: frozenset[str] = frozenset({
-    "os",
-    "nt",
-    "posix",
-    "subprocess",
-    "sys",
-    "importlib",
-    "importlib.import_module",
-    "builtins.eval",
-    "builtins.exec",
-    "builtins.compile",
-    "builtins.__import__",
-    "socket",
-    "shutil",
-    "pathlib",
-    "ctypes",
-    "cffi",
-    "multiprocessing",
-    "threading",
-    "pty",
-    "signal",
-    "gc",
-    "weakref",
-})
+DANGEROUS_MODULES: frozenset[str] = frozenset(
+    {
+        "os",
+        "nt",
+        "posix",
+        "subprocess",
+        "sys",
+        "importlib",
+        "importlib.import_module",
+        "builtins.eval",
+        "builtins.exec",
+        "builtins.compile",
+        "builtins.__import__",
+        "socket",
+        "shutil",
+        "pathlib",
+        "ctypes",
+        "cffi",
+        "multiprocessing",
+        "threading",
+        "pty",
+        "signal",
+        "gc",
+        "weakref",
+    }
+)
 
 
 def validate_pickle(data: bytes, scorer: ThreatScorer) -> None:
@@ -81,7 +85,6 @@ def _walk_opcodes(data: bytes, scorer: ThreatScorer) -> None:
     string_stack: list[str] = []
 
     for opcode, arg, pos in pickletools.genops(stream):
-
         name = opcode.name
 
         if name in ("SHORT_BINUNICODE", "BINUNICODE", "UNICODE"):
@@ -89,7 +92,6 @@ def _walk_opcodes(data: bytes, scorer: ThreatScorer) -> None:
                 string_stack.append(str(arg))
 
         elif name == "GLOBAL":
-
             raw = str(arg) if arg else ""
             parts = raw.split(" ", 1)
 
@@ -104,7 +106,6 @@ def _walk_opcodes(data: bytes, scorer: ThreatScorer) -> None:
                 raise UnsafePickleError(f"Dangerous callable at {pos}")
 
         elif name == "STACK_GLOBAL":
-
             if len(string_stack) >= 2:
                 module = string_stack[-2]
                 func = string_stack[-1]
@@ -120,7 +121,6 @@ def _walk_opcodes(data: bytes, scorer: ThreatScorer) -> None:
                 raise UnsafePickleError(f"Dangerous callable at {pos}")
 
         elif name == "REDUCE":
-
             if last_global and not _is_safe_module(last_global):
                 scorer.add(
                     f"pickle_reduce_opcode:{last_global}",
@@ -128,7 +128,6 @@ def _walk_opcodes(data: bytes, scorer: ThreatScorer) -> None:
                 )
 
         elif name == "INST":
-
             module = str(arg) if arg else ""
 
             if module in DANGEROUS_MODULES:
