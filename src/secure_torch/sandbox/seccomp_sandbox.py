@@ -104,7 +104,12 @@ def _apply_via_libseccomp() -> None:
     libseccomp.seccomp_init.argtypes = [ctypes.c_uint32]
     libseccomp.seccomp_init.restype = ctypes.c_void_p
 
-    libseccomp.seccomp_rule_add.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_int, ctypes.c_uint]
+    libseccomp.seccomp_rule_add.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_uint32,
+        ctypes.c_int,
+        ctypes.c_uint,
+    ]
     libseccomp.seccomp_rule_add.restype = ctypes.c_int
 
     libseccomp.seccomp_load.argtypes = [ctypes.c_void_p]
