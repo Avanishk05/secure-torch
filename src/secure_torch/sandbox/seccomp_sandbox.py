@@ -34,12 +34,16 @@ def apply_seccomp() -> bool:
             return True
         except ImportError:
             pass
+        except Exception:
+            # prctl failed, continue to libseccomp fallback
+            pass
 
         # Fallback: use libseccomp via ctypes
         try:
             _apply_via_libseccomp()
             return True
-        except Exception:
+        except (OSError, RuntimeError, Exception):
+            # libseccomp not available or failed, skip seccomp
             pass
 
         return False
@@ -91,7 +95,23 @@ def _apply_via_libseccomp() -> None:
     """Apply seccomp via libseccomp shared library (ctypes fallback)."""
     import ctypes
 
-    libseccomp = ctypes.CDLL("libseccomp.so.2")
+    try:
+        libseccomp = ctypes.CDLL("libseccomp.so.2")
+    except OSError as e:
+        raise RuntimeError(f"libseccomp not available: {e}")
+
+    # Proper ctypes type definitions for libseccomp
+    libseccomp.seccomp_init.argtypes = [ctypes.c_uint32]
+    libseccomp.seccomp_init.restype = ctypes.c_void_p
+
+    libseccomp.seccomp_rule_add.argtypes = [ctypes.c_void_p, ctypes.c_uint32, ctypes.c_int, ctypes.c_uint]
+    libseccomp.seccomp_rule_add.restype = ctypes.c_int
+
+    libseccomp.seccomp_load.argtypes = [ctypes.c_void_p]
+    libseccomp.seccomp_load.restype = ctypes.c_int
+
+    libseccomp.seccomp_release.argtypes = [ctypes.c_void_p]
+    libseccomp.seccomp_release.restype = None
 
     SCMP_ACT_ALLOW = 0x7FFF0000
     SCMP_ACT_KILL = 0x00000000
@@ -100,14 +120,17 @@ def _apply_via_libseccomp() -> None:
     if not ctx:
         raise RuntimeError("seccomp_init failed")
 
-    # Syscall numbers (x86_64)
-    ALLOWED_NRS = [0, 1, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 17, 21, 25, 28, 202]
+    try:
+        # Syscall numbers (x86_64)
+        ALLOWED_NRS = [0, 1, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 17, 21, 25, 28, 202]
 
-    for nr in ALLOWED_NRS:
-        libseccomp.seccomp_rule_add(ctx, SCMP_ACT_ALLOW, nr, 0)
+        for nr in ALLOWED_NRS:
+            ret = libseccomp.seccomp_rule_add(ctx, SCMP_ACT_ALLOW, nr, 0)
+            if ret != 0:
+                raise RuntimeError(f"seccomp_rule_add failed for syscall {nr}: {ret}")
 
-    ret = libseccomp.seccomp_load(ctx)
-    libseccomp.seccomp_release(ctx)
-
-    if ret != 0:
-        raise RuntimeError(f"seccomp_load failed: {ret}")
+        ret = libseccomp.seccomp_load(ctx)
+        if ret != 0:
+            raise RuntimeError(f"seccomp_load failed: {ret}")
+    finally:
+        libseccomp.seccomp_release(ctx)
