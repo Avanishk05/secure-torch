@@ -1,0 +1,25 @@
+=== FAIL: tests/cve/test_cve_extras.py::TestNewCVEVectors::test_builtins_eval_blocked
+tests\cve\test_cve_extras.py:69: in test_builtins_eval_blocked
+    with pytest.raises(UnsafePickleError):
+E   Failed: DID NOT RAISE <class 'secure_torch.exceptions.UnsafePickleError'>
+
+=== FAIL: tests/cve/test_cve_extras.py::TestNewCVEVectors::test_builtins_exec_blocked
+tests\cve\test_cve_extras.py:83: in test_builtins_exec_blocked
+    with pytest.raises(UnsafePickleError):
+E   Failed: DID NOT RAISE <class 'secure_torch.exceptions.UnsafePickleError'>
+
+=== FAIL: tests/cve/test_cve_extras.py::TestNewCVEVectors::test_builtins_compile_blocked
+tests\cve\test_cve_extras.py:97: in test_builtins_compile_blocked
+    with pytest.raises(UnsafePickleError):
+E   Failed: DID NOT RAISE <class 'secure_torch.exceptions.UnsafePickleError'>
+
+=== FAIL: tests/cve/test_cve_extras.py::TestNewCVEVectors::test_builtins_dunder_import_blocked
+tests\cve\test_cve_extras.py:111: in test_builtins_dunder_import_blocked
+    with pytest.raises(UnsafePickleError):
+E   Failed: DID NOT RAISE <class 'secure_torch.exceptions.UnsafePickleError'>
+
+=== FAIL: tests/unit/test_pickle_extras.py::TestStackGlobalOpcode::test_stack_global_builtins_eval_blocked
+tests\unit\test_pickle_extras.py:148: in test_stack_global_builtins_eval_blocked
+    with pytest.raises(UnsafePickleError):
+E   Failed: DID NOT RAISE <class 'secure_torch.exceptions.UnsafePickleError'>
+
