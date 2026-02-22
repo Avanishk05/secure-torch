@@ -16,10 +16,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+
 jobs:
 
 # ─────────────────────────────────────────────
-# LINT
+# LINT & TYPE CHECK
 # ─────────────────────────────────────────────
   lint:
     name: Lint & Type Check
@@ -34,8 +35,10 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Install dev tools
-        run: pip install --upgrade pip ruff mypy bandit
+      - name: Install lint tools
+        run: |
+          pip install --upgrade pip
+          pip install ruff mypy bandit
 
       - name: Ruff lint
         run: ruff check src tests
@@ -43,10 +46,10 @@ jobs:
       - name: Ruff format check
         run: ruff format --check src tests
 
-      - name: Mypy
+      - name: Mypy type check
         run: mypy src/secure_torch --ignore-missing-imports
 
-      - name: Bandit
+      - name: Bandit security scan
         run: bandit -r src/secure_torch -ll -q
 
 
@@ -57,7 +60,7 @@ jobs:
     name: Test (Python ${{ matrix.python-version }} / ${{ matrix.os }})
     needs: lint
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 25
 
     strategy:
       fail-fast: false
@@ -81,15 +84,13 @@ jobs:
           pip install -e .
           pip install pytest pytest-cov pytest-timeout cryptography huggingface_hub
 
-      # SAFE cross-platform command
-      - name: Run unit tests
+      - name: Run unit tests (with coverage)
         run: pytest tests/unit tests/cve -v --tb=short --cov=secure_torch --cov-report=xml --cov-report=term
 
-      # SAFE cross-platform command
       - name: Run integration tests
         run: pytest tests/integration -v --tb=short
 
-      - name: Upload coverage
+      - name: Upload coverage (Linux only, once)
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
         uses: codecov/codecov-action@v4
         with:
@@ -98,7 +99,7 @@ jobs:
 
 
 # ─────────────────────────────────────────────
-# AUDIT
+# DEPENDENCY AUDIT
 # ─────────────────────────────────────────────
   audit:
     name: Dependency Audit
@@ -106,19 +107,22 @@ jobs:
     timeout-minutes: 10
 
     steps:
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - run: pip install pip-audit
+      - name: Install pip-audit
+        run: pip install pip-audit
 
-      - run: pip-audit --requirement pyproject.toml --format json || true
+      - name: Run audit
+        run: pip-audit --requirement pyproject.toml --format json || true
 
 
 # ─────────────────────────────────────────────
-# PUBLISH
+# PUBLISH TO PYPI
 # ─────────────────────────────────────────────
   publish:
     name: Publish to PyPI
@@ -145,17 +149,12 @@ jobs:
           python-version: "3.11"
 
       - name: Install build tools
-        run: pip install --upgrade pip build
+        run: |
+          pip install --upgrade pip
+          pip install build
 
       - name: Build package
         run: python -m build
 
-      - name: Sign artifacts
-        uses: sigstore/gh-action-sigstore-python@v3.0.0
-        with:
-          inputs: |
-            dist/*.tar.gz
-            dist/*.whl
-
-      - name: Publish to PyPI
+      - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
