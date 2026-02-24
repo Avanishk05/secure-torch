@@ -16,7 +16,12 @@ import hashlib
 from pathlib import Path
 from typing import Any, Optional
 
-from secure_torch.exceptions import SecurityError, SignatureRequiredError, UnsafeModelError
+from secure_torch.exceptions import (
+    SecurityError,
+    SignatureRequiredError,
+    UnsafeModelError,
+    UnsafePickleError,
+)
 from secure_torch.format_detect import detect_format
 from secure_torch.models import ModelFormat, ProvenanceRecord, SBOMRecord, ValidationReport
 from secure_torch.threat_score import (
@@ -100,6 +105,10 @@ def secure_load(
         size = 0
 
     scorer = ThreatScorer()
+    
+    # Flag to skip the final loading step if validation found critical issues
+    # (prevents accidental RCE during audit if we tried to load anyway)
+    critical_validation_failure = False
 
     provenance: Optional[ProvenanceRecord] = None
     if is_path:
@@ -112,7 +121,21 @@ def secure_load(
             scorer=scorer,
         )
 
-    _run_validators(f, fmt, scorer, path=path)
+    try:
+        _run_validators(f, fmt, scorer, path=path)
+    except UnsafePickleError as e:
+        if audit_only:
+            # Critical finding! Record it and suppress the crash so we get a report.
+            scorer.add(f"critical_unsafe_pickle: {e}", 100, finding=True)
+            scorer.warn(f"CRITICAL: Validation failed with: {e}")
+            critical_validation_failure = True
+        else:
+            raise
+    except Exception as e:
+        if audit_only:
+            scorer.warn(f"Validator crashed: {e}")
+        else:
+            raise
 
     sbom = _evaluate_sbom_policy(
         sbom_path=sbom_path,
@@ -153,17 +176,31 @@ def secure_load(
             f"Use audit_only=True to load anyway and inspect the report."
         )
 
-    if sandbox and is_path:
+    model = None
+    
+    # If we found a critical threat (like an RCE payload), DO NOT try to load it, even in audit mode.
+    if critical_validation_failure:
+        model = None
+    elif sandbox and is_path:
         model = _sandbox_load(path, fmt, map_location=map_location, weights_only=weights_only)
     else:
-        model = _direct_load(
-            f,
-            fmt,
-            map_location=map_location,
-            weights_only=weights_only,
-            _jit_mode=_jit_mode,
-            **kwargs,
-        )
+        try:
+            model = _direct_load(
+                f,
+                fmt,
+                map_location=map_location,
+                weights_only=weights_only,
+                _jit_mode=_jit_mode,
+                **kwargs,
+            )
+        except Exception as exc:
+            if audit_only:
+                # If auditing, return the report even if the underlying load failed.
+                # This is common with PyTorch 2.6+ weights_only=True defaults on legacy files.
+                report.warnings.append(f"Underlying load failed: {exc}")
+                model = None
+            else:
+                raise
 
     if audit_only:
         return model, report

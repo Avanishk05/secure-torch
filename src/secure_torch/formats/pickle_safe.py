@@ -93,6 +93,39 @@ def validate_pickle(data: bytes, scorer: ThreatScorer) -> None:
     if not data:
         return
 
+    # Detect PyTorch ZIP archive format (starts with PK\x03\x04)
+    if data.startswith(b"PK\x03\x04"):
+        try:
+            import zipfile
+            with zipfile.ZipFile(io.BytesIO(data), "r") as zf:
+                # Scan for pickle files inside the archive.
+                # Standard PyTorch usually puts the main object in 'archive/data.pkl'.
+                candidates = [n for n in zf.namelist() if n.endswith(".pkl") or "data.pkl" in n]
+                
+                if not candidates:
+                    # Fallback: check all files, looking for pickle PROTO opcode
+                    candidates = zf.namelist()
+
+                for name in candidates:
+                    with zf.open(name) as f:
+                        content = f.read()
+                        # Only validate if it looks like a pickle stream (has PROTO opcode)
+                        # Protocol 2+ starts with \x80.
+                        if len(content) > 2 and content[0] == 0x80:
+                             try:
+                                _walk_opcodes(content, scorer)
+                             except UnsafePickleError:
+                                 raise
+                             except Exception:
+                                 # Ignore non-pickle binary files (like tensor storage)
+                                 pass
+        except UnsafePickleError:
+            raise
+        except Exception as e:
+            scorer.warn(f"Failed to inspect PyTorch ZIP archive: {e}")
+        return
+
+    # Standard pickle stream (non-zip)
     try:
         _walk_opcodes(data, scorer)
     except UnsafePickleError:
