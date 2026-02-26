@@ -38,7 +38,11 @@ def enforce_publisher_policy(
             raise SignatureRequiredError(
                 "require_signature=True but model signature could not be verified."
             )
-        return
+        # Fail closed: if trusted_publishers is defined, we CANNOT trust an unverified signer
+        raise UntrustedPublisherError(
+            f"Model is unverified, cannot satisfy trusted_publishers: {trusted_publishers}. "
+            f"Use trusted_publishers=None to disable publisher checks."
+        )
 
     signer = provenance.signer or ""
     if not any(_publisher_matches(signer, pub) for pub in trusted_publishers):

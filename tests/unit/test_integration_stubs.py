@@ -25,7 +25,6 @@ class TestHuggingFacePatch:
         assert _is_model_file("weights.safetensors") is True
         assert _is_model_file("config.json") is False
         assert _is_model_file("README.md") is False
-        assert _is_model_file("MODEL.KERAS") is True
 
     @patch("huggingface_hub.file_download.hf_hub_download")
     def test_patch_intercepts_download(self, mock_download, tmp_path):

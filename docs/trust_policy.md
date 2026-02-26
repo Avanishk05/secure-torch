@@ -13,7 +13,9 @@ model = torch.load(
 )
 ```
 
-If the model's signer identity does not contain any of the trusted publisher strings, `UntrustedPublisherError` is raised.
+If the model's signer identity does not match any of the trusted publishers exactly (or via an email domain match like `signer@publisher.com`), `UntrustedPublisherError` is raised.
+
+> **Note**: Substring matching is intentionally avoided to prevent spoofed identities.
 
 ## require_signature
 
