@@ -1,5 +1,8 @@
 import pytest
+
+pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
+
 import secure_torch as st
 from secure_torch.models import ThreatLevel
 
