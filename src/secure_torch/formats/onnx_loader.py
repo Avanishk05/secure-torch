@@ -10,19 +10,13 @@ Inspects ONNX model protobuf for:
 
 from __future__ import annotations
 
-import logging
 from pathlib import Path
 
 from secure_torch.threat_score import (
-    CODE_PATTERNS,
     ThreatScorer,
     SCORE_CUSTOM_OPS_DETECTED,
-    SCORE_ONNX_CODE_IN_METADATA,
     SCORE_ONNX_NESTED_GRAPH,
-    SCORE_ONNX_SUSPICIOUS_EXTERNAL_DATA,
 )
-
-logger = logging.getLogger(__name__)
 
 # Standard ONNX operator domains — anything else is a custom op
 STANDARD_DOMAINS: frozenset[str] = frozenset(
@@ -33,6 +27,14 @@ STANDARD_DOMAINS: frozenset[str] = frozenset(
         "ai.onnx.training",
         "com.microsoft",  # widely used ONNX Runtime extensions
     }
+)
+
+CODE_PATTERNS: tuple[str, ...] = (
+    "eval(",
+    "exec(",
+    "os.system",
+    "subprocess",
+    "__import__",
 )
 
 
@@ -102,7 +104,7 @@ def _check_metadata(model, scorer: ThreatScorer) -> None:
             if pattern in value:
                 scorer.add(
                     f"onnx_code_in_metadata:{prop.key}",
-                    SCORE_ONNX_CODE_IN_METADATA,
+                    50,  # same weight as safetensors metadata injection
                 )
                 break
 
@@ -117,7 +119,7 @@ def _check_external_data(model, scorer: ThreatScorer) -> None:
                 if location.startswith("/") or ".." in location:
                     scorer.add(
                         f"onnx_suspicious_external_data_path:{location}",
-                        SCORE_ONNX_SUSPICIOUS_EXTERNAL_DATA,
+                        30,
                     )
                 else:
                     scorer.warn(f"ONNX external data reference: {location}")

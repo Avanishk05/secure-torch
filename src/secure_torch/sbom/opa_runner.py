@@ -12,7 +12,6 @@ The pure-Python fallback handles the most common patterns.
 from __future__ import annotations
 
 import json
-import logging
 import os
 import shutil
 import subprocess
@@ -20,8 +19,6 @@ import tempfile
 from typing import Optional, Any
 
 from secure_torch.models import SBOMRecord
-
-logger = logging.getLogger(__name__)
 
 
 class OPAPolicyRunner:

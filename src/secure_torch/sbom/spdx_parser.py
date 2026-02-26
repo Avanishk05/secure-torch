@@ -8,12 +8,9 @@ This parser is forward-looking. secure-torch is helping create the standard.
 from __future__ import annotations
 
 import json
-import logging
 from typing import Optional
 
 from secure_torch.models import SBOMRecord
-
-logger = logging.getLogger(__name__)
 
 
 def parse_sbom(sbom_path: str) -> Optional[SBOMRecord]:

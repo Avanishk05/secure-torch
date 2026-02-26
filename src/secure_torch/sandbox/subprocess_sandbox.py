@@ -8,7 +8,6 @@ The parent process never unpickles child-controlled bytes.
 from __future__ import annotations
 
 import json
-import logging
 import os
 import subprocess
 import sys
@@ -18,8 +17,6 @@ from typing import Any
 
 from secure_torch.exceptions import SandboxError
 from secure_torch.models import ModelFormat
-
-logger = logging.getLogger(__name__)
 
 _WORKER_SCRIPT = """
 import json
@@ -233,24 +230,10 @@ class SubprocessSandbox:
         raise SandboxError(f"Unknown sandbox transfer format: {transfer}")
 
     def _restricted_env(self) -> dict[str, str]:
-        # Env-var patterns stripped via substring match (case-insensitive)
-        _DANGEROUS_PATTERNS = ("PROXY", "HTTP", "HTTPS", "FTP", "SOCKS")
-        # Exact env-var keys to strip (case-sensitive)
-        _DANGEROUS_KEYS = {
-            "PYTHONSTARTUP",
-            "PYTHONHOME",
-            "LD_PRELOAD",
-            "LD_LIBRARY_PATH",
-            "DYLD_INSERT_LIBRARIES",
-            "DYLD_LIBRARY_PATH",
-        }
-
         env = dict(os.environ)
         for key in list(env.keys()):
             upper_key = key.upper()
-            if any(token in upper_key for token in _DANGEROUS_PATTERNS):
-                del env[key]
-            elif key in _DANGEROUS_KEYS:
+            if any(token in upper_key for token in ("PROXY", "HTTP", "HTTPS", "FTP", "SOCKS")):
                 del env[key]
 
         src_path = str(Path(__file__).parent.parent.parent)

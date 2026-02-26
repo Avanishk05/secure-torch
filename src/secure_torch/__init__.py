@@ -17,7 +17,7 @@ from secure_torch.exceptions import (
     UnsafePickleError,
     UntrustedPublisherError,
 )
-from secure_torch.loader import scan_file, secure_load, secure_save
+from secure_torch.loader import secure_load, secure_save
 from secure_torch.models import ModelFormat, ThreatLevel, ValidationReport
 from secure_torch.huggingface import patch_huggingface, unpatch_huggingface
 
@@ -192,7 +192,6 @@ __all__ = [
     "__version__",
     "load",
     "save",
-    "scan_file",
     "jit",
     "hub",
     "from_pretrained",
