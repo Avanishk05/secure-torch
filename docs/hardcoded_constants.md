@@ -19,7 +19,7 @@ Scores are hardcoded integers representing risk contribution.
 | `SCORE_PICKLE_INST_OPCODE` | 10 | Pickle `INST` opcode (older RCE vector) |
 | `SCORE_ONNX_NESTED_GRAPH` | 10 | ONNX graph contains subgraphs |
 | `SCORE_SAFETENSORS_CODE_IN_METADATA` | 50 | Code-like strings in metadata (e.g. `eval(`, `os.system`) |
-| `SCORE_SBOM_MISSING` | 20 | No accompanying SBOM found |
+| `SCORE_SBOM_MISSING` | 20 | Provided SBOM path failed to parse or was missing |
 | `SCORE_PROVENANCE_UNVERIFIABLE` | 25 | Signature exists but verification failed |
 | `SCORE_HEADER_OVERSIZED` | 15 | Safetensors header > 100MB |
 | `SCORE_DTYPE_UNSAFE` | 35 | Unsafe dtype detected (e.g. object) |
