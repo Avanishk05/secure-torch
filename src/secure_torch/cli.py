@@ -59,8 +59,12 @@ def _build_parser() -> argparse.ArgumentParser:
     scan.add_argument("--sbom-path", default=None, help="Path to SPDX SBOM JSON")
     scan.add_argument("--sbom-policy-path", default=None, help="Path to OPA/Rego policy")
     scan.add_argument("--bundle-path", default=None, help="Path to .sigstore/.sig bundle")
-    scan.add_argument("--pubkey-path", default=None, help="Path to PEM public key")
     scan.add_argument("--json", action="store_true", help="Print report as JSON")
+
+    serve = subparsers.add_parser("serve", help="Run the secure-torch validation REST API server")
+    serve.add_argument("--port", type=int, default=8080, help="Port to run the server on")
+    serve.add_argument("--host", type=str, default="127.0.0.1", help="Host IP to bind to")
+
     return parser
 
 
@@ -216,6 +220,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             _print_rich_report(report)
 
+        return 0
+
+    if args.command == "serve":
+        from secure_torch.server import run_server
+
+        print(f"Starting secure-torch API server on {args.host}:{args.port}...")
+        run_server(port=args.port, host=args.host)
         return 0
 
     if args.command != "audit":

@@ -1,0 +1,58 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.10.0, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\avani\AppData\Local\Programs\Python\Python310\python.exe
+cachedir: .pytest_cache
+rootdir: C:\collection\Sectorch
+configfile: pyproject.toml
+plugins: anyio-4.9.0, cov-7.0.0, timeout-2.4.0
+timeout: 300.0s
+timeout method: thread
+timeout func_only: False
+collecting ... collected 4 items
+
+tests/unit/test_server.py::test_health_endpoint PASSED                   [ 25%]
+tests/unit/test_server.py::test_validate_endpoint_safe_model FAILED      [ 50%]
+tests/unit/test_server.py::test_validate_endpoint_unsafe_model FAILED    [ 75%]
+tests/unit/test_logging.py::test_blocked_model_json_log FAILED           [100%]
+
+================================== FAILURES ===================================
+______________________ test_validate_endpoint_safe_model ______________________
+tests\unit\test_server.py:36: in test_validate_endpoint_safe_model
+    assert data["threat_level"] == ThreatLevel.SAFE.value
+E   AssertionError: assert 'MEDIUM' == 'SAFE'
+E     
+E     - SAFE
+E     + MEDIUM
+_____________________ test_validate_endpoint_unsafe_model _____________________
+tests\unit\test_server.py:52: in test_validate_endpoint_unsafe_model
+    assert "No such file or directory" in response.json()["detail"]
+E   assert 'No such file or directory' in "[WinError 3] The system cannot find the path specified: '\\\\fake\\\\not_exist.pt'"
+------------------------------ Captured log call ------------------------------
+ERROR    secure_torch.server:server.py:64 Validation failed
+Traceback (most recent call last):
+  File "C:\collection\Sectorch\src\secure_torch\server.py", line 53, in validate_model
+    report = st.scan_file(
+  File "C:\collection\Sectorch\src\secure_torch\loader.py", line 54, in scan_file
+    result = secure_load(
+  File "C:\collection\Sectorch\src\secure_torch\loader.py", line 102, in secure_load
+    size: int = _path.stat().st_size
+  File "C:\Users\avani\AppData\Local\Programs\Python\Python310\lib\pathlib.py", line 1095, in stat
+    return self._accessor.stat(self, follow_symlinks=follow_symlinks)
+FileNotFoundError: [WinError 3] The system cannot find the path specified: '\\fake\\not_exist.pt'
+_________________________ test_blocked_model_json_log _________________________
+tests\unit\test_logging.py:17: in test_blocked_model_json_log
+    st.load(str(model_path), require_signature=True, max_threat_score=0)
+src\secure_torch\__init__.py:59: in load
+    return secure_load(
+src\secure_torch\loader.py:130: in secure_load
+    provenance = _verify_signature(
+src\secure_torch\loader.py:254: in _verify_signature
+    raise SignatureRequiredError("Missing signature")
+E   secure_torch.exceptions.SignatureRequiredError: Missing signature
+=========================== short test summary info ===========================
+FAILED tests/unit/test_server.py::test_validate_endpoint_safe_model - AssertionError: assert 'MEDIUM' == 'SAFE'
+  
+  - SAFE
+  + MEDIUM
+FAILED tests/unit/test_server.py::test_validate_endpoint_unsafe_model - assert 'No such file or directory' in "[WinError 3] The system cannot find the path specified: '\\\\fake\\\\not_exist.pt'"
+FAILED tests/unit/test_logging.py::test_blocked_model_json_log - secure_torch.exceptions.SignatureRequiredError: Missing signature
+========================= 3 failed, 1 passed in 1.34s =========================

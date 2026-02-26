@@ -32,13 +32,16 @@ torch = {version = ">=2.0", optional = true}
 onnx = {version = ">=1.14", optional = true}
 sigstore = {version = ">=3.5", optional = true}
 cryptography = {version = ">=41.0.0", optional = true}
+fastapi = {version = ">=0.100.0", optional = true}
+uvicorn = {version = ">=0.20.0", optional = true}
 
 [tool.poetry.extras]
 torch = ["torch"]
 onnx = ["onnx"]
 sigstore = ["sigstore"]
 crypto = ["cryptography"]
-all = ["torch", "onnx", "sigstore", "cryptography"]
+server = ["fastapi", "uvicorn"]
+all = ["torch", "onnx", "sigstore", "cryptography", "fastapi", "uvicorn"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4"

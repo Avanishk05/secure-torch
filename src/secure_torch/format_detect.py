@@ -64,7 +64,7 @@ def detect_format(path_or_f: Union[str, Path, IO[bytes]]) -> ModelFormat:
 
         raise FormatError("Cannot determine format for file-like object from magic bytes.")
 
-    path = Path(path_or_f) # type: ignore
+    path = Path(path_or_f)  # type: ignore
     ext = path.suffix.lower()
 
     # Extension-first detection

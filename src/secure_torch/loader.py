@@ -172,6 +172,19 @@ def secure_load(
     )
 
     if not load_allowed and not audit_only:
+        import json
+
+        logger.error(
+            json.dumps(
+                {
+                    "event": "model_blocked",
+                    "path": str(f),
+                    "format": fmt.value if hasattr(fmt, "value") else str(fmt),
+                    "threat_score": scorer.total,
+                    "findings": scorer.findings,
+                }
+            )
+        )
         raise UnsafeModelError(
             f"Model blocked: threat score {scorer.total} > max {max_threat_score}.\n"
             f"Breakdown: {scorer.breakdown}"
@@ -212,8 +225,10 @@ def _verify_signature(
 ) -> Optional[ProvenanceRecord]:
     if path is None:
         if require_signature:
-            raise SignatureRequiredError("Missing signature (file-like object cannot have external signature bundle)")
-        
+            raise SignatureRequiredError(
+                "Missing signature (file-like object cannot have external signature bundle)"
+            )
+
         scorer.add("unsigned_model", SCORE_UNSIGNED_MODEL)
         scorer.warn("Model is unsigned (loaded from file-like object)")
         return ProvenanceRecord(verified=False, error="Missing signature")

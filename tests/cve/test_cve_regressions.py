@@ -44,8 +44,6 @@ class TestCVERegressions:
         with pytest.raises(UnsafePickleError):
             validate_pickle(payload, scorer)
 
-
-
     def test_safetensors_metadata_injection_scored(self):
         """
         GHSA-v9fq-2296 — HuggingFace pickle injection via metadata.
