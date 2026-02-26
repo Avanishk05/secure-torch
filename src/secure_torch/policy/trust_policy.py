@@ -41,8 +41,25 @@ def enforce_publisher_policy(
         return
 
     signer = provenance.signer or ""
-    if not any(pub in signer for pub in trusted_publishers):
+    if not any(_publisher_matches(signer, pub) for pub in trusted_publishers):
         raise UntrustedPublisherError(
             f"Model signer '{signer}' is not in trusted_publishers: {trusted_publishers}. "
             f"Use trusted_publishers=None to disable this check."
         )
+
+
+def _publisher_matches(signer: str, publisher: str) -> bool:
+    """Check if *signer* identity matches a trusted *publisher*.
+
+    Supports:
+    - Exact match: ``signer == publisher``
+    - Email domain: ``signer`` ends with ``@publisher``
+
+    Substring matching is **intentionally avoided** to prevent
+    spoofed identities such as ``evil.com/huggingface.co``.
+    """
+    if signer == publisher:
+        return True
+    if signer.endswith("@" + publisher):
+        return True
+    return False

@@ -20,6 +20,7 @@ from pathlib import Path
 import pytest
 
 from secure_torch.threat_score import ThreatScorer
+from typing import Optional
 
 
 def _onnx_available():
@@ -31,11 +32,11 @@ def _onnx_available():
 
 
 def make_onnx_model(
-    custom_opset_domain: str = None,
-    custom_node_domain: str = None,
+    custom_opset_domain: Optional[str] = None,
+    custom_node_domain: Optional[str] = None,
     nested_graph: bool = False,
-    metadata: dict = None,
-    external_data_path: str = None,
+    metadata: Optional[dict] = None,
+    external_data_path: Optional[str] = None,
 ):
     """Build a minimal ONNX model with optional dangerous attributes."""
     from onnx import helper, TensorProto
