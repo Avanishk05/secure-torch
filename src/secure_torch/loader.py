@@ -63,8 +63,9 @@ def scan_file(
         policy_context=policy_context,
         bundle_path=bundle_path,
         pubkey_path=pubkey_path,
+        skip_load=True,
     )
-    # secure_load returns (model, report) when audit_only=True
+    # secure_load returns (model, report) when audit_only=True or skip_load=True
     _, report = result
     return report
 
@@ -85,6 +86,7 @@ def secure_load(
     map_location=None,
     weights_only: bool = True,
     _jit_mode: bool = False,
+    skip_load: bool = False,
     **kwargs,
 ) -> Any:
     """
@@ -177,7 +179,9 @@ def secure_load(
         )
 
     # Safe sandbox invocation
-    if sandbox and path is not None:
+    if skip_load:
+        model = None
+    elif sandbox and path is not None:
         _path = path  # narrowed for mypy
         model = _sandbox_load(
             _path,
@@ -195,7 +199,7 @@ def secure_load(
             **kwargs,
         )
 
-    return (model, report) if audit_only else model
+    return (model, report) if (audit_only or skip_load) else model
 
 
 def _verify_signature(
