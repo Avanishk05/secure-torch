@@ -88,20 +88,29 @@ class TestThreatLevelBoundaries:
     def test_score_15_is_low(self):
         assert ThreatLevel.from_score(15) == ThreatLevel.LOW
 
-    def test_score_16_is_medium(self):
-        assert ThreatLevel.from_score(16) == ThreatLevel.MEDIUM
+    def test_score_19_is_low(self):
+        assert ThreatLevel.from_score(19) == ThreatLevel.LOW
+
+    def test_score_20_is_medium(self):
+        assert ThreatLevel.from_score(20) == ThreatLevel.MEDIUM
 
     def test_score_35_is_medium(self):
         assert ThreatLevel.from_score(35) == ThreatLevel.MEDIUM
 
-    def test_score_36_is_high(self):
-        assert ThreatLevel.from_score(36) == ThreatLevel.HIGH
+    def test_score_49_is_medium(self):
+        assert ThreatLevel.from_score(49) == ThreatLevel.MEDIUM
+
+    def test_score_50_is_high(self):
+        assert ThreatLevel.from_score(50) == ThreatLevel.HIGH
 
     def test_score_60_is_high(self):
         assert ThreatLevel.from_score(60) == ThreatLevel.HIGH
 
-    def test_score_61_is_critical(self):
-        assert ThreatLevel.from_score(61) == ThreatLevel.CRITICAL
+    def test_score_79_is_high(self):
+        assert ThreatLevel.from_score(79) == ThreatLevel.HIGH
+
+    def test_score_80_is_critical(self):
+        assert ThreatLevel.from_score(80) == ThreatLevel.CRITICAL
 
     def test_score_100_is_critical(self):
         assert ThreatLevel.from_score(100) == ThreatLevel.CRITICAL

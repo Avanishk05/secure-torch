@@ -33,10 +33,10 @@ Thresholds mapping numeric scores to qualitative levels.
 | Level | Score Range |
 |---|---|
 | `SAFE` | 0 |
-| `LOW` | 1 – 15 |
-| `MEDIUM` | 16 – 35 |
-| `HIGH` | 36 – 60 |
-| `CRITICAL` | 61+ |
+| `LOW` | 1 – 19 |
+| `MEDIUM` | 20 – 49 |
+| `HIGH` | 50 – 79 |
+| `CRITICAL` | 80+ |
 
 ---
 

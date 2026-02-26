@@ -25,11 +25,11 @@ class ThreatLevel(str, Enum):
     def from_score(cls, score: int) -> "ThreatLevel":
         if score == 0:
             return cls.SAFE
-        elif score <= 15:
+        elif score <= 19:
             return cls.LOW
-        elif score <= 35:
+        elif score <= 49:
             return cls.MEDIUM
-        elif score <= 60:
+        elif score <= 79:
             return cls.HIGH
         else:
             return cls.CRITICAL
