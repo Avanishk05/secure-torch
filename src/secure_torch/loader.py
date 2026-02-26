@@ -120,22 +120,21 @@ def secure_load(
                 sbom_path = str(candidate)
 
     else:
-        fmt = ModelFormat.PICKLE
+        fmt = detect_format(f)
         size = 0
 
     scorer = ThreatScorer()
 
     provenance: Optional[ProvenanceRecord] = None
 
-    if path is not None:
-        provenance = _verify_signature(
-            path=path,
-            bundle_path=bundle_path,
-            pubkey_path=pubkey_path,
-            require_signature=require_signature,
-            trusted_publishers=trusted_publishers,
-            scorer=scorer,
-        )
+    provenance = _verify_signature(
+        path=path,
+        bundle_path=bundle_path,
+        pubkey_path=pubkey_path,
+        require_signature=require_signature,
+        trusted_publishers=trusted_publishers,
+        scorer=scorer,
+    )
 
     _run_validators(f, fmt, scorer, path=path)
 
@@ -203,13 +202,20 @@ def secure_load(
 
 
 def _verify_signature(
-    path: Path,
+    path: Optional[Path],
     bundle_path: Optional[str],
     pubkey_path: Optional[str],
     require_signature: bool,
     trusted_publishers: Optional[list[str]],
     scorer: ThreatScorer,
 ) -> Optional[ProvenanceRecord]:
+    if path is None:
+        if require_signature:
+            raise SignatureRequiredError("Missing signature (file-like object cannot have external signature bundle)")
+        
+        scorer.add("unsigned_model", SCORE_UNSIGNED_MODEL)
+        scorer.warn("Model is unsigned (loaded from file-like object)")
+        return ProvenanceRecord(verified=False, error="Missing signature")
 
     from secure_torch.provenance.sigstore_verifier import SigstoreVerifier
 
@@ -251,18 +257,31 @@ def _run_validators(
 
         if path is not None:
             validate_pickle(path.read_bytes(), scorer)
+        else:
+            if hasattr(f, "read"):
+                current_pos = f.tell() if hasattr(f, "tell") else 0
+                if hasattr(f, "seek"):
+                    f.seek(0)
+                data = f.read()
+                if hasattr(f, "seek"):
+                    f.seek(current_pos)
+                validate_pickle(data, scorer)
 
     elif fmt == ModelFormat.SAFETENSORS:
         from secure_torch.formats.safetensors import validate_safetensors
 
         if path is not None:
             validate_safetensors(path, scorer)
+        else:
+            scorer.warn("Safetensors validation for file-like objects is not fully supported")
 
     elif fmt == ModelFormat.ONNX:
         from secure_torch.formats.onnx_loader import validate_onnx
 
         if path is not None:
             validate_onnx(path, scorer)
+        else:
+            scorer.warn("ONNX validation for file-like objects is not fully supported")
 
 
 def _evaluate_sbom_policy(
