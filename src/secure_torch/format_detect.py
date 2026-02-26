@@ -19,6 +19,9 @@ _EXT_MAP: dict[str, ModelFormat] = {
     ".pkl": ModelFormat.PICKLE,
     ".pickle": ModelFormat.PICKLE,
     ".onnx": ModelFormat.ONNX,
+    ".h5": ModelFormat.KERAS,
+    ".hdf5": ModelFormat.KERAS,
+    ".keras": ModelFormat.KERAS,
 }
 
 # Magic bytes for fallback detection

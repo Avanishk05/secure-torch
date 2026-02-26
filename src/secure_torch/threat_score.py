@@ -24,6 +24,24 @@ SCORE_SBOM_MISSING = 20
 SCORE_PROVENANCE_UNVERIFIABLE = 25
 SCORE_HEADER_OVERSIZED = 15
 SCORE_DTYPE_UNSAFE = 35
+SCORE_SBOM_POLICY_DENIAL = 30
+SCORE_UNTRUSTED_PUBLISHER = 20
+SCORE_ONNX_CODE_IN_METADATA = 50
+SCORE_ONNX_SUSPICIOUS_EXTERNAL_DATA = 30
+
+# Code-like patterns that must never appear in model metadata values.
+# Shared across safetensors and ONNX validators.
+CODE_PATTERNS: tuple[str, ...] = (
+    "eval(",
+    "exec(",
+    "os.system",
+    "subprocess",
+    "__import__",
+    "importlib",
+    "open(",
+    "socket",
+    "ctypes",
+)
 
 
 class ThreatScorer:

@@ -11,6 +11,7 @@ class ModelFormat(str, Enum):
     SAFETENSORS = "safetensors"
     PICKLE = "pickle"
     ONNX = "onnx"
+    KERAS = "keras"
     UNKNOWN = "unknown"
 
 

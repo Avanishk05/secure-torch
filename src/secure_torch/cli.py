@@ -40,6 +40,27 @@ def _build_parser() -> argparse.ArgumentParser:
     audit.add_argument("--bundle-path", default=None, help="Path to .sigstore/.sig bundle")
     audit.add_argument("--pubkey-path", default=None, help="Path to PEM public key")
     audit.add_argument("--json", action="store_true", help="Print report as JSON")
+
+    scan = subparsers.add_parser("scan", help="Lightweight scan without model loading.")
+    scan.add_argument("model_path", help="Path to model artifact")
+    scan.add_argument("--require-signature", action="store_true", help="Require a valid signature")
+    scan.add_argument(
+        "--trusted-publisher",
+        action="append",
+        default=None,
+        help="Publisher allowlist entry (repeatable)",
+    )
+    scan.add_argument(
+        "--max-threat-score",
+        type=int,
+        default=20,
+        help="Threat score threshold used for allow/deny evaluation",
+    )
+    scan.add_argument("--sbom-path", default=None, help="Path to SPDX SBOM JSON")
+    scan.add_argument("--sbom-policy-path", default=None, help="Path to OPA/Rego policy")
+    scan.add_argument("--bundle-path", default=None, help="Path to .sigstore/.sig bundle")
+    scan.add_argument("--pubkey-path", default=None, help="Path to PEM public key")
+    scan.add_argument("--json", action="store_true", help="Print report as JSON")
     return parser
 
 
@@ -174,6 +195,29 @@ def _print_rich_report(report: Any) -> None:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = _build_parser().parse_args(argv)
+
+    if args.command == "scan":
+        try:
+            report = st.scan_file(
+                args.model_path,
+                require_signature=args.require_signature,
+                trusted_publishers=args.trusted_publisher,
+                max_threat_score=args.max_threat_score,
+                sbom_path=args.sbom_path,
+                sbom_policy_path=args.sbom_policy_path,
+                bundle_path=args.bundle_path,
+                pubkey_path=args.pubkey_path,
+            )
+        except (OSError, SecurityError, ImportError, ValueError) as exc:
+            print(f"secure-torch: {exc}", file=sys.stderr)
+            return 1
+
+        if args.json:
+            print(json.dumps(_report_to_dict(report), indent=2, sort_keys=True))
+        else:
+            _print_rich_report(report)
+
+        return 0
 
     if args.command != "audit":
         return 2

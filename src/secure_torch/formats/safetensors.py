@@ -11,15 +11,19 @@ Wraps safetensors.safe_open with header validation:
 from __future__ import annotations
 
 import json
+import logging
 import struct
 from pathlib import Path
 
 from secure_torch.threat_score import (
+    CODE_PATTERNS,
     ThreatScorer,
     SCORE_SAFETENSORS_CODE_IN_METADATA,
     SCORE_HEADER_OVERSIZED,
     SCORE_DTYPE_UNSAFE,
 )
+
+logger = logging.getLogger(__name__)
 
 # Allowed dtypes — reject anything that could encode executable payloads
 SAFE_DTYPES: frozenset[str] = frozenset(
@@ -48,19 +52,6 @@ UNSAFE_DTYPES: frozenset[str] = frozenset(
         "V",
         "void",
     }
-)
-
-# Code-like patterns that should never appear in metadata values
-CODE_PATTERNS: tuple[str, ...] = (
-    "eval(",
-    "exec(",
-    "os.system",
-    "subprocess",
-    "__import__",
-    "importlib",
-    "open(",
-    "socket",
-    "ctypes",
 )
 
 MAX_HEADER_BYTES = 100 * 1024 * 1024  # 100 MB header is absurd
