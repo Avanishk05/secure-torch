@@ -72,6 +72,8 @@ def main():
     kwargs = task.get("kwargs", {})
 
     if sys.platform == "linux":
+        # Apply strict syscall blocking (network/exec) via seccomp on Linux.
+        # Other platforms rely on basic process isolation and env-var stripping above.
         try:
             from secure_torch.sandbox.seccomp_sandbox import apply_seccomp
             apply_seccomp()
@@ -244,7 +246,9 @@ class SubprocessSandbox:
         raise SandboxError(f"Unknown sandbox transfer format: {transfer}")
 
     def _restricted_env(self) -> dict[str, str]:
-        # Env-var patterns stripped via substring match (case-insensitive)
+        # BEST-EFFORT ISOLATION (Cross-platform):
+        # Strips proxy and network-related env vars used by common network libraries.
+        # Strict network blocking (e.g., socket()) requires Linux seccomp.
         _DANGEROUS_PATTERNS = ("PROXY", "HTTP", "HTTPS", "FTP", "SOCKS")
         # Exact env-var keys to strip (case-sensitive)
         _DANGEROUS_KEYS = {

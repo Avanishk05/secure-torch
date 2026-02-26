@@ -90,7 +90,7 @@ print(report.warnings)           # ['No signature bundle found']
 
 ```python
 model = torch.load("model.pt", sandbox=True)
-# Model loaded in restricted subprocess — no network, no exec
+# Model loaded in restricted subprocess (strict exec/network blocking via seccomp on Linux)
 ```
 
 ### Other compatibility surfaces

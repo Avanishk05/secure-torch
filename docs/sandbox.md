@@ -2,7 +2,7 @@
 
 ## Overview
 
-secure-torch loads models in a **restricted subprocess** by default when `sandbox=True`. This prevents malicious model code from accessing the network, spawning processes, or reading sensitive files.
+secure-torch loads models in a **restricted subprocess** by default when `sandbox=True`. This provides basic process isolation and strips network-related environment variables cross-platform, while enforcing strict syscall blocking (no network, no execing) via seccomp on Linux.
 
 ## Architecture
 
