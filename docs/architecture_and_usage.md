@@ -49,8 +49,8 @@ The entry point is `secure_load()`. It orchestrates the pipeline:
     -   Checks file extension first (optimization).
     -   Updates to check **Magic Bytes** logic:
         -   Safetensors: Detected via valid header length (8 bytes little-endian) and JSON header structure.
-        -   Pickle-based PyTorch models: Detected via pickle protocol opcodes or PyTorch archive ZIP format.
-        -   ONNX: Detected via valid protobuf structure and ONNX graph schema validation.
+        -   Pickle-based PyTorch models: Detected via pickle protocol opcodes (`\x80\x02` to `\x80\x05`) or PyTorch archive ZIP format.
+        -   ONNX: Detected via valid protobuf structure magic bytes (`\x08`).
 
 ### Threat Scoring (`src/secure_torch/threat_score.py`)
 
@@ -104,8 +104,8 @@ The entry point is `secure_load()`. It orchestrates the pipeline:
 #### Subprocess Sandbox (`subprocess_sandbox.py`)
 -   **Architecture**: Spawns a dedicated Python subprocess (`sys.executable`).
 -   **Isolation**:
-    -   **Environment**: Strips `HTTP_PROXY`, `HTTPS_PROXY`, `AWS_ACCESS_KEY_ID`, etc., to prevent network access or credential exfiltration.
-    -   **Communication**: Passes model path via args, returns tensors via pickle serialization over `multiprocessing.Pipe`. Because deserialization occurs only in the trusted parent process and the sandbox restricts arbitrary execution, this does not introduce additional code execution risk.
+    -   **Environment**: Strips `HTTP_PROXY`, `HTTPS_PROXY`, `FTP_PROXY`, etc., to provide best-effort isolation from network access.
+    -   **Communication**: Passes model path via JSON payload over stdin. Returns tensors via a temporary `safetensors` or `onnx` payload file, rather than generic pickle over a pipe, to ensure the parent process never unpickles child-controlled bytes.
     -   **Timeout**: Hard 120s limit to prevent DoS (infinite loops).
 
 #### Seccomp Sandbox (`seccomp_sandbox.py`)
