@@ -65,7 +65,6 @@ class ValidationReport:
     score_breakdown: dict[str, int]  # explainable: {"unsigned_model": 40, ...}
     findings: list[str]  # blocking issues
     warnings: list[str]  # non-blocking advisories
-    sha256: str
     size_bytes: int
     load_allowed: bool
     sandbox_active: bool
@@ -77,7 +76,6 @@ class ValidationReport:
         lines = [
             f"Model:        {self.path}",
             f"Format:       {self.format.value}",
-            f"SHA-256:      {self.sha256[:16]}...",
             f"Size:         {self.size_bytes:,} bytes",
             f"Threat Level: {self.threat_level.value} (score={self.threat_score})",
             f"Load Allowed: {'YES' if self.load_allowed else 'NO'}",

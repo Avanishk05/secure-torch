@@ -21,9 +21,10 @@ from pathlib import Path
 
 from secure_torch.formats.safetensors import validate_safetensors
 from secure_torch.threat_score import ThreatScorer
+from typing import Optional
 
 
-def make_safetensors(metadata: dict = None, tensors: dict = None) -> bytes:
+def make_safetensors(metadata: Optional[dict] = None, tensors: Optional[dict] = None) -> bytes:
     """Build a minimal safetensors file."""
     header = {}
     if metadata:

@@ -12,6 +12,7 @@ import tempfile
 
 from secure_torch.models import SBOMRecord
 from secure_torch.sbom.opa_runner import OPAPolicyRunner
+from typing import Optional
 
 
 def make_sbom(
@@ -19,7 +20,7 @@ def make_sbom(
     model_type: str = "transformer",
     sensitive_pii: str = "no",
     training_info: str = "public datasets",
-    ai_profile: dict = None,
+    ai_profile: Optional[dict] = None,
 ) -> SBOMRecord:
     raw = {
         "spdxVersion": "SPDX-2.3",
