@@ -10,7 +10,6 @@ import logging
 from typing import Any
 
 import secure_torch as st
-from secure_torch.exceptions import SecurityError
 
 logger = logging.getLogger(__name__)
 

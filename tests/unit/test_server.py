@@ -22,7 +22,6 @@ def test_validate_endpoint_safe_model(tmp_path):
     try:
         from secure_torch.server import create_app
         import torch
-        import json
 
         app = create_app()
         client = TestClient(app)

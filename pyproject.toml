@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "secure-torch"
-version = "0.1.0"
+version = "0.2.0"
 description = "Model Trust Gateway — unified secure loader with signature verification, trust policy enforcement, and sandbox isolation"
 authors = ["Avanish Kulkarni <avaishkulkarni2005@gmail.com>",
            "Atharva Khambete <atharvakhambete1@gmail.com>"
