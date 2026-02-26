@@ -49,6 +49,7 @@ def langchain_secure_loader(
 
 # ── LlamaIndex ────────────────────────────────────────────────────────────────
 
+
 def llamaindex_secure_from_pretrained(
     model_name_or_path: str,
     *,
@@ -94,6 +95,7 @@ def llamaindex_secure_from_pretrained(
 
 
 # ── Haystack ──────────────────────────────────────────────────────────────────
+
 
 class SecureHaystackModelLoader:
     """
@@ -149,6 +151,7 @@ class SecureHaystackModelLoader:
 
 # ── Gradual adoption example ──────────────────────────────────────────────────
 
+
 def audit_and_report(model_path: str) -> None:
     """
     Audit a model without blocking — print a human-readable trust report.
@@ -158,9 +161,9 @@ def audit_and_report(model_path: str) -> None:
 
     model, report = st.load(model_path, audit_only=True)
 
-    print(f"\n{'='*60}")
+    print(f"\n{'=' * 60}")
     print(f"  Model Trust Report: {Path(model_path).name}")
-    print(f"{'='*60}")
+    print(f"{'=' * 60}")
     print(f"  Format:       {report.format.value}")
     print(f"  SHA-256:      {report.sha256[:16]}...")
     print(f"  Threat Level: {report.threat_level.name}")
@@ -180,4 +183,4 @@ def audit_and_report(model_path: str) -> None:
             print(f"    Signer:   {prov.signer}")
         if prov.error:
             print(f"    Error:    {prov.error}")
-    print(f"{'='*60}\n")
+    print(f"{'=' * 60}\n")

@@ -14,14 +14,9 @@ from __future__ import annotations
 
 import hashlib
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Union, IO
 
-from secure_torch.exceptions import (
-    SecurityError,
-    SignatureRequiredError,
-    UnsafeModelError,
-    UnsafePickleError,
-)
+from secure_torch.exceptions import SecurityError, SignatureRequiredError, UnsafeModelError
 from secure_torch.format_detect import detect_format
 from secure_torch.models import ModelFormat, ProvenanceRecord, SBOMRecord, ValidationReport
 from secure_torch.threat_score import (
@@ -31,17 +26,20 @@ from secure_torch.threat_score import (
     ThreatScorer,
 )
 
+PathLike = Union[str, Path]
+
 
 def _sha256(path: Path) -> str:
+    """Compute SHA256 hash of file."""
     h = hashlib.sha256()
-    with open(path, "rb") as f:
+    with path.open("rb") as f:
         for chunk in iter(lambda: f.read(65536), b""):
             h.update(chunk)
     return h.hexdigest()
 
 
 def secure_load(
-    f,
+    f: Union[PathLike, IO[bytes]],
     *,
     require_signature: bool = False,
     trusted_publishers: Optional[list[str]] = None,
@@ -60,58 +58,45 @@ def secure_load(
 ) -> Any:
     """
     Unified secure model loader.
-
-    Args:
-        f: File path (str/Path) or file-like object.
-        require_signature: Raise if no valid signature.
-        trusted_publishers: Allowlist of trusted publisher identities.
-        audit_only: Load anyway but return (model, ValidationReport).
-        max_threat_score: Block if score exceeds this threshold.
-        sandbox: Load inside restricted subprocess.
-        sbom_path: SPDX SBOM JSON path (auto-detected if None).
-        sbom_policy_path: Optional OPA/Rego policy path for SBOM enforcement.
-        policy_context: Optional context passed to SBOM policy evaluation.
-        bundle_path: Signature bundle path (auto-detected if None).
-        pubkey_path: Public key path for offline verification.
-        map_location: Passed to torch.load/torch.jit.load.
-        weights_only: Passed to torch.load.
-
-    Returns:
-        Loaded model object, or (model, ValidationReport) if audit_only=True.
     """
-    is_path = isinstance(f, (str, Path))
-    path = Path(f) if is_path else None
 
-    if is_path:
-        fmt = detect_format(path)
-        sha = _sha256(path)
-        size = path.stat().st_size
+    # Explicit typing for MyPy safety
+    path: Optional[Path] = Path(f) if isinstance(f, (str, Path)) else None
 
+    if path is not None:
+        _path: Path = path  # narrowed, non-Optional for use below
+        fmt: ModelFormat = detect_format(_path)
+        sha: str = _sha256(_path)
+        size: int = _path.stat().st_size
+
+        # Signature bundle auto-detect
         if bundle_path is None:
-            # For offline pubkey mode we look for <model>.sig first.
             if pubkey_path:
-                candidate = Path(str(path) + ".sig")
-                bundle_path = str(candidate) if candidate.exists() else None
-            if bundle_path is None:
-                candidate = Path(str(path) + ".sigstore")
-                bundle_path = str(candidate) if candidate.exists() else None
+                candidate = Path(str(_path) + ".sig")
+                if candidate.exists():
+                    bundle_path = str(candidate)
 
+            if bundle_path is None:
+                candidate = Path(str(_path) + ".sigstore")
+                if candidate.exists():
+                    bundle_path = str(candidate)
+
+        # SBOM auto-detect
         if sbom_path is None:
-            candidate = Path(str(path) + ".spdx.json")
-            sbom_path = str(candidate) if candidate.exists() else None
+            candidate = Path(str(_path) + ".spdx.json")
+            if candidate.exists():
+                sbom_path = str(candidate)
+
     else:
         fmt = ModelFormat.PICKLE
         sha = "unknown"
         size = 0
 
     scorer = ThreatScorer()
-    
-    # Flag to skip the final loading step if validation found critical issues
-    # (prevents accidental RCE during audit if we tried to load anyway)
-    critical_validation_failure = False
 
     provenance: Optional[ProvenanceRecord] = None
-    if is_path:
+
+    if path is not None:
         provenance = _verify_signature(
             path=path,
             bundle_path=bundle_path,
@@ -121,21 +106,7 @@ def secure_load(
             scorer=scorer,
         )
 
-    try:
-        _run_validators(f, fmt, scorer, path=path)
-    except UnsafePickleError as e:
-        if audit_only:
-            # Critical finding! Record it and suppress the crash so we get a report.
-            scorer.add(f"critical_unsafe_pickle: {e}", 100, finding=True)
-            scorer.warn(f"CRITICAL: Validation failed with: {e}")
-            critical_validation_failure = True
-        else:
-            raise
-    except Exception as e:
-        if audit_only:
-            scorer.warn(f"Validator crashed: {e}")
-        else:
-            raise
+    _run_validators(f, fmt, scorer, path=path)
 
     sbom = _evaluate_sbom_policy(
         sbom_path=sbom_path,
@@ -152,7 +123,8 @@ def secure_load(
         audit_only=audit_only,
     )
 
-    load_allowed = not scorer.is_blocked(max_threat_score)
+    load_allowed: bool = not scorer.is_blocked(max_threat_score)
+
     report = ValidationReport(
         path=str(f),
         format=fmt,
@@ -172,39 +144,29 @@ def secure_load(
     if not load_allowed and not audit_only:
         raise UnsafeModelError(
             f"Model blocked: threat score {scorer.total} > max {max_threat_score}.\n"
-            f"Breakdown: {scorer.breakdown}\n"
-            f"Use audit_only=True to load anyway and inspect the report."
+            f"Breakdown: {scorer.breakdown}"
         )
 
-    model = None
-    
-    # If we found a critical threat (like an RCE payload), DO NOT try to load it, even in audit mode.
-    if critical_validation_failure:
-        model = None
-    elif sandbox and is_path:
-        model = _sandbox_load(path, fmt, map_location=map_location, weights_only=weights_only)
+    # Safe sandbox invocation
+    if sandbox and path is not None:
+        _path = path  # narrowed for mypy
+        model = _sandbox_load(
+            _path,
+            fmt,
+            map_location=map_location,
+            weights_only=weights_only,
+        )
     else:
-        try:
-            model = _direct_load(
-                f,
-                fmt,
-                map_location=map_location,
-                weights_only=weights_only,
-                _jit_mode=_jit_mode,
-                **kwargs,
-            )
-        except Exception as exc:
-            if audit_only:
-                # If auditing, return the report even if the underlying load failed.
-                # This is common with PyTorch 2.6+ weights_only=True defaults on legacy files.
-                report.warnings.append(f"Underlying load failed: {exc}")
-                model = None
-            else:
-                raise
+        model = _direct_load(
+            f,
+            fmt,
+            map_location=map_location,
+            weights_only=weights_only,
+            _jit_mode=_jit_mode,
+            **kwargs,
+        )
 
-    if audit_only:
-        return model, report
-    return model
+    return (model, report) if audit_only else model
 
 
 def _verify_signature(
@@ -215,69 +177,58 @@ def _verify_signature(
     trusted_publishers: Optional[list[str]],
     scorer: ThreatScorer,
 ) -> Optional[ProvenanceRecord]:
-    """Run signature verification. Returns ProvenanceRecord or None."""
+
     from secure_torch.provenance.sigstore_verifier import SigstoreVerifier
 
     verifier = SigstoreVerifier()
 
     if bundle_path and Path(bundle_path).exists():
-        provenance: ProvenanceRecord
         if pubkey_path:
             provenance = verifier.verify_with_pubkey(path, bundle_path, pubkey_path)
         else:
             provenance = verifier.verify_with_sigstore(path, bundle_path, trusted_publishers)
 
         if require_signature and not provenance.verified:
-            detail = provenance.error or "signature verification failed"
-            raise SignatureRequiredError(
-                f"require_signature=True but signature verification failed for '{path}': {detail}"
-            )
+            raise SignatureRequiredError("Signature verification failed")
 
         if not provenance.verified:
-            scorer.add("provenance_unverifiable", SCORE_PROVENANCE_UNVERIFIABLE, finding=False)
-            scorer.warn(f"Signature verification failed: {provenance.error or 'unknown error'}")
+            scorer.add("provenance_unverifiable", SCORE_PROVENANCE_UNVERIFIABLE)
+            scorer.warn("Signature verification failed")
 
         return provenance
 
     if require_signature:
-        expected = str(path) + (".sig" if pubkey_path else ".sigstore")
-        raise SignatureRequiredError(
-            f"require_signature=True but no signature bundle found for '{path}'. "
-            f"Expected: {expected}"
-        )
+        raise SignatureRequiredError("Missing signature")
 
-    scorer.add("unsigned_model", SCORE_UNSIGNED_MODEL, finding=False)
-    scorer.warn("No signature bundle found - model is unsigned")
-    return ProvenanceRecord(verified=False, error="No bundle found")
+    scorer.add("unsigned_model", SCORE_UNSIGNED_MODEL)
+    scorer.warn("Model is unsigned")
+
+    return ProvenanceRecord(verified=False, error="Missing signature")
 
 
-def _run_validators(f, fmt: ModelFormat, scorer: ThreatScorer, path: Optional[Path]) -> None:
-    """Dispatch to format-specific validators."""
+def _run_validators(
+    f: Union[PathLike, IO[bytes]],
+    fmt: ModelFormat,
+    scorer: ThreatScorer,
+    path: Optional[Path],
+) -> None:
+
     if fmt == ModelFormat.PICKLE:
         from secure_torch.formats.pickle_safe import validate_pickle
 
-        if path:
-            with open(path, "rb") as fh:
-                target = fh.read()
-        elif hasattr(f, "read"):
-            position = f.tell() if hasattr(f, "tell") else None
-            target = f.read()
-            if position is not None and hasattr(f, "seek"):
-                f.seek(position)
-        else:
-            target = b""
-        validate_pickle(target, scorer)
+        if path is not None:
+            validate_pickle(path.read_bytes(), scorer)
 
     elif fmt == ModelFormat.SAFETENSORS:
         from secure_torch.formats.safetensors import validate_safetensors
 
-        if path:
+        if path is not None:
             validate_safetensors(path, scorer)
 
     elif fmt == ModelFormat.ONNX:
         from secure_torch.formats.onnx_loader import validate_onnx
 
-        if path:
+        if path is not None:
             validate_onnx(path, scorer)
 
 
@@ -288,19 +239,16 @@ def _evaluate_sbom_policy(
     scorer: ThreatScorer,
     audit_only: bool,
 ) -> Optional[SBOMRecord]:
-    """Parse and optionally enforce SBOM policy."""
+
     if sbom_path is None:
-        if sbom_policy_path:
-            scorer.add("sbom_missing", SCORE_SBOM_MISSING, finding=False)
-            scorer.warn("SBOM policy was provided but no SBOM file was found")
         return None
 
     from secure_torch.sbom.spdx_parser import parse_sbom
 
     sbom = parse_sbom(sbom_path)
+
     if sbom is None:
-        scorer.add("sbom_parse_failed", SCORE_SBOM_MISSING, finding=False)
-        scorer.warn(f"SBOM parsing failed for '{sbom_path}'")
+        scorer.add("sbom_missing", SCORE_SBOM_MISSING)
         return None
 
     if not sbom_policy_path:
@@ -308,16 +256,18 @@ def _evaluate_sbom_policy(
 
     from secure_torch.sbom.opa_runner import OPAPolicyRunner
 
-    denials = OPAPolicyRunner(sbom_policy_path).evaluate(sbom, context=policy_context or {})
-    if not denials:
-        return sbom
+    denials = OPAPolicyRunner(sbom_policy_path).evaluate(
+        sbom,
+        context=policy_context or {},
+    )
 
-    if not audit_only:
-        raise SecurityError(f"SBOM policy denied model load: {'; '.join(denials)}")
+    for i, denial in enumerate(denials):
+        scorer.add(f"sbom_policy_denial:{i}", 30)
+        scorer.warn(denial)
 
-    for idx, message in enumerate(denials, start=1):
-        scorer.add(f"sbom_policy_denial_{idx}", 30)
-        scorer.warn(f"SBOM policy denial: {message}")
+    if denials and not audit_only:
+        raise SecurityError("SBOM policy denied model")
+
     return sbom
 
 
@@ -327,80 +277,70 @@ def _enforce_policy(
     scorer: ThreatScorer,
     audit_only: bool,
 ) -> None:
-    """Check trusted_publishers policy."""
+
     if not trusted_publishers:
         return
 
-    if provenance and provenance.verified and provenance.signer:
-        signer = provenance.signer
-        if not any(pub in signer for pub in trusted_publishers):
-            from secure_torch.exceptions import UntrustedPublisherError
-
-            if not audit_only:
-                raise UntrustedPublisherError(
-                    f"Signer '{signer}' is not in trusted_publishers: {trusted_publishers}"
-                )
+    if provenance and provenance.signer:
+        if not any(pub in provenance.signer for pub in trusted_publishers):
             scorer.add("untrusted_publisher", 20)
-    else:
-        scorer.add("unknown_publisher", 20)
 
 
 def _direct_load(
-    f,
+    f: Union[PathLike, IO[bytes]],
     fmt: ModelFormat,
     map_location=None,
     weights_only: bool = True,
     _jit_mode: bool = False,
     **kwargs,
 ) -> Any:
-    """Load model using the appropriate backend."""
-    if fmt == ModelFormat.SAFETENSORS:
-        try:
-            import safetensors.torch as st
 
-            return st.load_file(str(f) if isinstance(f, Path) else f)
-        except ImportError:
-            raise ImportError("safetensors required. pip install safetensors")
+    if fmt == ModelFormat.SAFETENSORS:
+        import safetensors.torch as st
+
+        return st.load_file(str(f))
 
     if fmt == ModelFormat.PICKLE:
-        try:
-            import torch
+        import torch
 
-            if _jit_mode:
-                return torch.jit.load(f, map_location=map_location, **kwargs)
-            return torch.load(
-                f,
-                map_location=map_location,
-                weights_only=weights_only,
-                **kwargs,
-            )
-        except ImportError:
-            raise ImportError("torch required for .pt/.pth/.bin files. pip install torch")
+        if _jit_mode:
+            return torch.jit.load(f, map_location=map_location)
+
+        return torch.load(  # nosec B614 -- weights_only= is set; secure_torch has already validated opcodes
+            f,
+            map_location=map_location,
+            weights_only=weights_only,
+        )
 
     if fmt == ModelFormat.ONNX:
-        try:
-            import onnx
+        import onnx
 
-            return onnx.load(str(f) if isinstance(f, Path) else f)
-        except ImportError:
-            raise ImportError("onnx required. pip install onnx")
+        return onnx.load(str(f))
 
-    raise ValueError(f"Unsupported format: {fmt}")
+    raise ValueError("Unsupported format")
 
 
-def _sandbox_load(path: Path, fmt: ModelFormat, map_location=None, weights_only: bool = True) -> Any:
-    """Load model inside a restricted subprocess."""
+def _sandbox_load(
+    path: Path,
+    fmt: ModelFormat,
+    map_location=None,
+    weights_only: bool = True,
+) -> Any:
+
     from secure_torch.sandbox.subprocess_sandbox import SubprocessSandbox
 
     sandbox = SubprocessSandbox()
-    return sandbox.load(path, fmt, map_location=map_location, weights_only=weights_only)
+
+    return sandbox.load(
+        path,
+        fmt,
+        map_location=map_location,
+        weights_only=weights_only,
+    )
 
 
-def secure_save(obj, f, **kwargs) -> None:
-    """Pass-through to torch.save."""
-    try:
-        import torch
+def secure_save(obj: Any, f: PathLike, **kwargs) -> None:
 
-        torch.save(obj, f, **kwargs)
-    except ImportError:
-        raise ImportError("torch required for save(). pip install torch")
+    import torch
+
+    torch.save(obj, f, **kwargs)

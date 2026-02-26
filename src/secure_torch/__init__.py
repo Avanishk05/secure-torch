@@ -172,6 +172,7 @@ def from_pretrained(
         pubkey_path=pubkey_path,
     )
     import logging
+
     logger = logging.getLogger(__name__)
     logger.warning(
         "For secure remote loading with huggingface, "
@@ -180,9 +181,11 @@ def from_pretrained(
     try:
         from transformers import AutoModel
 
-        return AutoModel.from_pretrained(model_name_or_path, **kwargs)
+        return AutoModel.from_pretrained(model_name_or_path, **kwargs)  # nosec B615 -- intentional passthrough; security enforced via patch_huggingface()
     except ImportError:
-        raise ImportError("transformers is required for from_pretrained(). pip install transformers")
+        raise ImportError(
+            "transformers is required for from_pretrained(). pip install transformers"
+        )
 
 
 __all__ = [

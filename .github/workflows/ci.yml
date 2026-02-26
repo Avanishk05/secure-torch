@@ -3,46 +3,65 @@ name: CI
 on:
   push:
     branches: [main, dev]
+    tags:
+      - "v*"
   pull_request:
     branches: [main]
 
 permissions:
   contents: read
-  id-token: write   # Required for PyPI Trusted Publishing (OIDC)
+  id-token: write
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 
 jobs:
-  # ── Lint & Type Check ─────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────
+# LINT & TYPE CHECK
+# ─────────────────────────────────────────────
   lint:
     name: Lint & Type Check
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: pip
 
-      - name: Install dev tools
-        run: pip install ruff mypy bandit
+      - name: Install lint tools
+        run: |
+          pip install --upgrade pip
+          pip install ruff mypy bandit
 
       - name: Ruff lint
-        run: ruff check src/ tests/
+        run: ruff check src tests
 
       - name: Ruff format check
-        run: ruff format --check src/ tests/
+        run: ruff format --check src tests
 
       - name: Mypy type check
-        run: mypy src/secure_torch/ --ignore-missing-imports
+        run: mypy src/secure_torch --ignore-missing-imports
 
       - name: Bandit security scan
-        run: bandit -r src/secure_torch/ -ll -q
+        run: bandit -r src/secure_torch -ll -q
 
-  # ── Tests (multi-OS × multi-Python matrix) ────────────────────────────────
+
+# ─────────────────────────────────────────────
+# TEST MATRIX
+# ─────────────────────────────────────────────
   test:
     name: Test (Python ${{ matrix.python-version }} / ${{ matrix.os }})
     needs: lint
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+
     strategy:
       fail-fast: false
       matrix:
@@ -50,83 +69,92 @@ jobs:
         python-version: ["3.10", "3.11", "3.12"]
 
     steps:
+
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
+          cache: pip
 
-      - name: Install package and test deps
+      - name: Install dependencies
         run: |
+          pip install --upgrade pip
+          pip install safetensors>=0.4.0 numpy>=1.22 packaging>=23.0 torch>=2.0
           pip install -e .
-          pip install pytest pytest-cov cryptography
+          pip install pytest pytest-cov pytest-timeout cryptography huggingface_hub
 
-      - name: Run unit tests
-        run: pytest tests/unit/ tests/cve/ -v --tb=short --cov=secure_torch --cov-report=xml
+      - name: Run unit tests (with coverage)
+        run: pytest tests/unit tests/cve -v --tb=short --cov=secure_torch --cov-report=xml --cov-report=term
 
       - name: Run integration tests
-        run: pytest tests/integration/ -v --tb=short
+        run: pytest tests/integration -v --tb=short
 
-      - name: Upload coverage
+      - name: Upload coverage (Linux only, once)
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
         uses: codecov/codecov-action@v4
         with:
           file: coverage.xml
           fail_ci_if_error: false
 
-  # ── Dependency Audit ──────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────
+# DEPENDENCY AUDIT
+# ─────────────────────────────────────────────
   audit:
     name: Dependency Audit
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     steps:
+
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install pip-audit
         run: pip install pip-audit
 
-      - name: Audit dependencies
+      - name: Run audit
         run: pip-audit --requirement pyproject.toml --format json || true
 
-  # ── Publish to PyPI (on release tag) ─────────────────────────────────────
+
+# ─────────────────────────────────────────────
+# PUBLISH TO PYPI
+# ─────────────────────────────────────────────
   publish:
     name: Publish to PyPI
     needs: [test, audit]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     if: startsWith(github.ref, 'refs/tags/v')
+
     environment:
       name: pypi
       url: https://pypi.org/p/secure-torch
+
     permissions:
       id-token: write
-      contents: read  
-    
+      contents: read
+
     steps:
+
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install build tools
-        run: pip install build
+        run: |
+          pip install --upgrade pip
+          pip install build
 
-      - name: Build distribution
+      - name: Build package
         run: python -m build
 
-      - name: Sign artifacts with Sigstore
-        uses: sigstore/gh-action-sigstore-python@v2.1.0
-        with:
-          inputs: |
-            dist/*.tar.gz
-            dist/*.whl
-
-      - name: Publish to PyPI (Trusted Publishing / OIDC)
+      - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        # No API token needed — uses OIDC Trusted Publishing

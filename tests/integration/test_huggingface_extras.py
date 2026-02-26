@@ -9,62 +9,66 @@ Covers:
 - Non-model files are skipped without validation
 - huggingface_hub not installed: warns gracefully
 """
+
 from __future__ import annotations
 
-import os
-import tempfile
-from pathlib import Path
 from unittest.mock import patch
-
-import pytest
 
 
 class TestIsModeFile:
-
     def test_safetensors_is_model(self):
         from secure_torch.huggingface import _is_model_file
+
         assert _is_model_file("weights.safetensors") is True
 
     def test_bin_is_model(self):
         from secure_torch.huggingface import _is_model_file
+
         assert _is_model_file("pytorch_model.bin") is True
 
     def test_pt_is_model(self):
         from secure_torch.huggingface import _is_model_file
+
         assert _is_model_file("model.pt") is True
 
     def test_onnx_is_model(self):
         from secure_torch.huggingface import _is_model_file
+
         assert _is_model_file("model.onnx") is True
 
     def test_pth_is_model(self):
         from secure_torch.huggingface import _is_model_file
+
         assert _is_model_file("checkpoint.pth") is True
 
     def test_config_json_not_model(self):
         from secure_torch.huggingface import _is_model_file
+
         assert _is_model_file("config.json") is False
 
     def test_tokenizer_not_model(self):
         from secure_torch.huggingface import _is_model_file
+
         assert _is_model_file("tokenizer.json") is False
 
     def test_readme_not_model(self):
         from secure_torch.huggingface import _is_model_file
+
         assert _is_model_file("README.md") is False
 
 
 class TestPatchLifecycle:
-
     def setup_method(self):
         # Ensure clean state before each test
         from secure_torch import huggingface
+
         if huggingface._PATCHED:
             huggingface.unpatch_huggingface()
 
     def teardown_method(self):
         # Ensure clean state after each test
         from secure_torch import huggingface
+
         if huggingface._PATCHED:
             huggingface.unpatch_huggingface()
 
@@ -97,6 +101,7 @@ class TestPatchLifecycle:
     def test_unpatch_without_prior_patch_is_no_op(self):
         """Calling unpatch_huggingface without prior patch must not raise."""
         from secure_torch.huggingface import unpatch_huggingface
+
         unpatch_huggingface()  # should not raise
 
     def test_non_model_file_skips_scanning(self, tmp_path):
@@ -107,8 +112,7 @@ class TestPatchLifecycle:
         config_path = tmp_path / "config.json"
         config_path.write_text('{"model_type": "bert"}')
 
-        with patch("huggingface_hub.file_download.hf_hub_download",
-                   return_value=str(config_path)):
+        with patch("huggingface_hub.file_download.hf_hub_download", return_value=str(config_path)):
             called = []
             original_secure_load = loader.secure_load
 
@@ -118,6 +122,7 @@ class TestPatchLifecycle:
 
             patch_huggingface()
             import huggingface_hub
+
             huggingface_hub.file_download.hf_hub_download(
                 repo_id="fake/repo", filename="config.json"
             )

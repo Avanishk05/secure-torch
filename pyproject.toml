@@ -43,9 +43,11 @@ all = ["torch", "onnx", "sigstore", "cryptography"]
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4"
 pytest-cov = "^4.1"
+pytest-timeout = "^2.1"
 mypy = "^1.8"
 ruff = "^0.3"
 bandit = "^1.7"
+torch = ">=2.0"
 
 [tool.poetry.scripts]
 secure-torch = "secure_torch.cli:main"
@@ -65,4 +67,5 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-v --tb=short"
+addopts = "-v --tb=short --timeout=300"
+timeout = 300

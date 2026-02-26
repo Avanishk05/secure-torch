@@ -22,21 +22,45 @@ from secure_torch.threat_score import (
 )
 
 # Allowed dtypes — reject anything that could encode executable payloads
-SAFE_DTYPES: frozenset[str] = frozenset({
-    "F16", "F32", "F64", "BF16",
-    "I8", "I16", "I32", "I64",
-    "U8", "U16", "U32", "U64",
-    "BOOL",
-})
+SAFE_DTYPES: frozenset[str] = frozenset(
+    {
+        "F16",
+        "F32",
+        "F64",
+        "BF16",
+        "I8",
+        "I16",
+        "I32",
+        "I64",
+        "U8",
+        "U16",
+        "U32",
+        "U64",
+        "BOOL",
+    }
+)
 
-UNSAFE_DTYPES: frozenset[str] = frozenset({
-    "object", "python_object", "O", "V", "void",
-})
+UNSAFE_DTYPES: frozenset[str] = frozenset(
+    {
+        "object",
+        "python_object",
+        "O",
+        "V",
+        "void",
+    }
+)
 
 # Code-like patterns that should never appear in metadata values
 CODE_PATTERNS: tuple[str, ...] = (
-    "eval(", "exec(", "os.system", "subprocess", "__import__",
-    "importlib", "open(", "socket", "ctypes",
+    "eval(",
+    "exec(",
+    "os.system",
+    "subprocess",
+    "__import__",
+    "importlib",
+    "open(",
+    "socket",
+    "ctypes",
 )
 
 MAX_HEADER_BYTES = 100 * 1024 * 1024  # 100 MB header is absurd

@@ -47,7 +47,9 @@ def _report_to_dict(report: Any) -> dict[str, Any]:
     data = {
         "path": report.path,
         "format": report.format.name if hasattr(report.format, "name") else str(report.format),
-        "threat_level": report.threat_level.name if hasattr(report.threat_level, "name") else str(report.threat_level),
+        "threat_level": report.threat_level.name
+        if hasattr(report.threat_level, "name")
+        else str(report.threat_level),
         "threat_score": report.threat_score,
         "score_breakdown": report.score_breakdown,
         "findings": report.findings,
@@ -89,7 +91,7 @@ def _print_rich_report(report: Any) -> None:
         return
 
     console = Console()
-    
+
     # Determine Threat Color
     # ThreatLevel ranges conceptually: SAFE (0), LOW (1-19), MEDIUM (20-49), HIGH (50-79), CRITICAL (80+)
     score = report.threat_score
@@ -103,33 +105,41 @@ def _print_rich_report(report: Any) -> None:
         level_color = "red"
     else:
         level_color = "bold red"
-        
-    tl_name = report.threat_level.name if hasattr(report.threat_level, "name") else str(report.threat_level)
+
+    tl_name = (
+        report.threat_level.name
+        if hasattr(report.threat_level, "name")
+        else str(report.threat_level)
+    )
 
     header_text = Text()
     header_text.append(f"Model: {report.path}\n", style="bold")
-    header_text.append(f"Format: {report.format.name if hasattr(report.format, 'name') else str(report.format)}\n")
+    header_text.append(
+        f"Format: {report.format.name if hasattr(report.format, 'name') else str(report.format)}\n"
+    )
     header_text.append(f"Threat Score: {score} ", style="bold")
     header_text.append(f"[{tl_name}]\n", style=level_color)
-    header_text.append(f"Status: ", style="bold")
+    header_text.append("Status: ", style="bold")
     if report.load_allowed:
         header_text.append("ALLOWED\n", style="bold green")
     else:
         header_text.append("BLOCKED\n", style="bold red")
 
-    console.print(Panel(header_text, title="Secure-Torch Security Report", border_style=level_color))
+    console.print(
+        Panel(header_text, title="Secure-Torch Security Report", border_style=level_color)
+    )
 
     # Breakdown Table
     if report.score_breakdown:
         table = Table(title="Threat Score Breakdown", show_header=True, header_style="bold magenta")
         table.add_column("Category", style="cyan")
         table.add_column("Score", justify="right", style="red")
-        
+
         for key, val in report.score_breakdown.items():
             table.add_row(str(key), str(val))
-            
+
         console.print(table)
-        
+
     # Provenance
     if report.provenance:
         prov_text = Text()
@@ -143,9 +153,9 @@ def _print_rich_report(report: Any) -> None:
             prov_text.append("✖ Signature Unverified\n", style="bold red")
             if report.provenance.error:
                 prov_text.append(f"Error: {report.provenance.error}", style="red")
-                
+
         console.print(Panel(prov_text, title="Provenance (Sigstore/Crypto)", border_style="blue"))
-        
+
     # SBOM
     if report.sbom:
         sbom_text = Text()

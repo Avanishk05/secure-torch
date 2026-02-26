@@ -9,6 +9,7 @@ Covers:
 - Header-bomb protection
 - Non-dict __metadata__
 """
+
 from __future__ import annotations
 
 import json
@@ -17,7 +18,6 @@ import struct
 import tempfile
 from pathlib import Path
 
-import pytest
 
 from secure_torch.formats.safetensors import validate_safetensors
 from secure_torch.threat_score import ThreatScorer
@@ -43,8 +43,8 @@ def write_tmp(content: bytes) -> Path:
 
 # ── Code patterns in metadata ─────────────────────────────────────────────────
 
-class TestMetadataCodePatterns:
 
+class TestMetadataCodePatterns:
     def _assert_scored(self, metadata_value: str) -> None:
         path = write_tmp(make_safetensors(metadata={"key": metadata_value}))
         try:
@@ -120,12 +120,14 @@ class TestMetadataCodePatterns:
 
 # ── Tensor descriptor anomalies ───────────────────────────────────────────────
 
-class TestTensorDescriptors:
 
+class TestTensorDescriptors:
     def test_unsafe_dtype_object_scored(self):
-        path = write_tmp(make_safetensors(tensors={
-            "weight": {"dtype": "object", "shape": [10], "data_offsets": [0, 10]}
-        }))
+        path = write_tmp(
+            make_safetensors(
+                tensors={"weight": {"dtype": "object", "shape": [10], "data_offsets": [0, 10]}}
+            )
+        )
         try:
             scorer = ThreatScorer()
             validate_safetensors(path, scorer)
@@ -134,9 +136,13 @@ class TestTensorDescriptors:
             os.unlink(path)
 
     def test_unsafe_dtype_python_object_scored(self):
-        path = write_tmp(make_safetensors(tensors={
-            "weight": {"dtype": "python_object", "shape": [10], "data_offsets": [0, 10]}
-        }))
+        path = write_tmp(
+            make_safetensors(
+                tensors={
+                    "weight": {"dtype": "python_object", "shape": [10], "data_offsets": [0, 10]}
+                }
+            )
+        )
         try:
             scorer = ThreatScorer()
             validate_safetensors(path, scorer)
@@ -145,9 +151,11 @@ class TestTensorDescriptors:
             os.unlink(path)
 
     def test_safe_dtype_f32_no_score(self):
-        path = write_tmp(make_safetensors(tensors={
-            "weight": {"dtype": "F32", "shape": [10, 10], "data_offsets": [0, 400]}
-        }))
+        path = write_tmp(
+            make_safetensors(
+                tensors={"weight": {"dtype": "F32", "shape": [10, 10], "data_offsets": [0, 400]}}
+            )
+        )
         try:
             scorer = ThreatScorer()
             validate_safetensors(path, scorer)
@@ -157,9 +165,13 @@ class TestTensorDescriptors:
 
     def test_absurd_shape_scored(self):
         """Tensor with a > 1 billion dimension must get a score."""
-        path = write_tmp(make_safetensors(tensors={
-            "weight": {"dtype": "F32", "shape": [1_000_000_001], "data_offsets": [0, 10]}
-        }))
+        path = write_tmp(
+            make_safetensors(
+                tensors={
+                    "weight": {"dtype": "F32", "shape": [1_000_000_001], "data_offsets": [0, 10]}
+                }
+            )
+        )
         try:
             scorer = ThreatScorer()
             validate_safetensors(path, scorer)
@@ -169,9 +181,11 @@ class TestTensorDescriptors:
 
     def test_zero_size_dimension_warns(self):
         """Tensor with a zero-size dimension must issue a warning."""
-        path = write_tmp(make_safetensors(tensors={
-            "weight": {"dtype": "F32", "shape": [0, 512], "data_offsets": [0, 0]}
-        }))
+        path = write_tmp(
+            make_safetensors(
+                tensors={"weight": {"dtype": "F32", "shape": [0, 512], "data_offsets": [0, 0]}}
+            )
+        )
         try:
             scorer = ThreatScorer()
             validate_safetensors(path, scorer)
@@ -181,9 +195,13 @@ class TestTensorDescriptors:
 
     def test_unknown_dtype_warns(self):
         """An unknown (but not dangerous) dtype string must produce a warning."""
-        path = write_tmp(make_safetensors(tensors={
-            "weight": {"dtype": "CUSTOM_DTYPE_99", "shape": [10], "data_offsets": [0, 10]}
-        }))
+        path = write_tmp(
+            make_safetensors(
+                tensors={
+                    "weight": {"dtype": "CUSTOM_DTYPE_99", "shape": [10], "data_offsets": [0, 10]}
+                }
+            )
+        )
         try:
             scorer = ThreatScorer()
             validate_safetensors(path, scorer)
@@ -206,8 +224,8 @@ class TestTensorDescriptors:
 
 # ── Header edge cases ─────────────────────────────────────────────────────────
 
-class TestHeaderEdgeCases:
 
+class TestHeaderEdgeCases:
     def test_truncated_header_warns_not_raises(self):
         """Only 3 bytes — too small to be valid. Must warn gracefully."""
         path = write_tmp(b"\x00\x01\x02")

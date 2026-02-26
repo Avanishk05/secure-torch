@@ -16,42 +16,36 @@ import os
 import shutil
 import subprocess
 import tempfile
+from typing import Optional, Any
 
 from secure_torch.models import SBOMRecord
 
 
 class OPAPolicyRunner:
-    """
-    Evaluates OPA Rego policies against SBOM data.
-
-    Tries the opa binary first. Falls back to pure-Python subset evaluator
-    for simple deny rules when opa is not installed.
-    """
-
     def __init__(self, policy_path: str) -> None:
-        self.policy_path = policy_path
-        self._opa_binary = shutil.which("opa")
 
-    def evaluate(self, sbom: SBOMRecord, context: dict = None) -> list[str]:
-        """
-        Evaluate the policy against SBOM data.
+        self.policy_path: str = policy_path
+        self._opa_binary: Optional[str] = shutil.which("opa")
 
-        Args:
-            sbom: Parsed SBOM record.
-            context: Additional context (e.g., {"environment": "production"}).
+    def evaluate(
+        self,
+        sbom: SBOMRecord,
+        context: Optional[dict[str, Any]] = None,
+    ) -> list[str]:
 
-        Returns:
-            List of denial messages. Empty list means policy allows the model.
-        """
         input_data = self._build_input(sbom, context or {})
 
         if self._opa_binary:
             return self._evaluate_with_opa(input_data)
-        else:
-            return self._evaluate_python_fallback(input_data)
 
-    def _build_input(self, sbom: SBOMRecord, context: dict) -> dict:
-        """Build the OPA input document from SBOM + context."""
+        return self._evaluate_python_fallback(input_data)
+
+    def _build_input(
+        self,
+        sbom: SBOMRecord,
+        context: dict[str, Any],
+    ) -> dict[str, Any]:
+
         return {
             "spdxVersion": sbom.spdx_version,
             "name": sbom.name,
@@ -63,21 +57,28 @@ class OPAPolicyRunner:
             **context,
         }
 
-    def _evaluate_with_opa(self, input_data: dict) -> list[str]:
-        """Evaluate using the opa binary."""
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".json", delete=False, encoding="utf-8"
-        ) as f:
+    def _evaluate_with_opa(self, input_data: dict[str, Any]) -> list[str]:
+
+        if self._opa_binary is None:
+            return []
+
+        with tempfile.NamedTemporaryFile(mode="w", delete=False) as f:
             json.dump(input_data, f)
             input_file = f.name
+
+        opa_binary: str = self._opa_binary  # narrowed from Optional[str]
 
         try:
             result = subprocess.run(
                 [
-                    self._opa_binary, "eval",
-                    "--data", self.policy_path,
-                    "--input", input_file,
-                    "--format", "json",
+                    opa_binary,
+                    "eval",
+                    "--data",
+                    self.policy_path,
+                    "--input",
+                    input_file,
+                    "--format",
+                    "json",
                     "data.secure_torch.policy.deny",
                 ],
                 capture_output=True,
@@ -86,31 +87,23 @@ class OPAPolicyRunner:
             )
 
             if result.returncode != 0:
-                return [f"OPA evaluation error: {result.stderr.strip()}"]
+                return [result.stderr]
 
-            output = json.loads(result.stdout)
-            results = output.get("result", [])
-            if results and results[0].get("expressions"):
-                denials = results[0]["expressions"][0].get("value", [])
-                return list(denials) if isinstance(denials, list) else []
-            return []
+            parsed = json.loads(result.stdout)
 
-        except subprocess.TimeoutExpired:
-            return ["OPA policy evaluation timed out"]
-        except Exception as e:
-            return [f"OPA evaluation failed: {e}"]
+            if not parsed.get("result"):
+                return []
+
+            return parsed["result"][0]["expressions"][0]["value"]
+
         finally:
             os.unlink(input_file)
 
-    def _evaluate_python_fallback(self, input_data: dict) -> list[str]:
-        """
-        Pure-Python subset evaluator for simple deny rules.
-
-        Supports the most common pattern:
-            deny[msg] { condition; msg := "..." }
-
-        Parses .rego file and evaluates simple conditions.
-        """
+    def _evaluate_python_fallback(
+        self,
+        input_data: dict[str, Any],
+    ) -> list[str]:
+        """Pure-Python subset evaluator for simple deny rules."""
         try:
             with open(self.policy_path, "r", encoding="utf-8") as f:
                 policy_text = f.read()
@@ -119,7 +112,18 @@ class OPAPolicyRunner:
 
         denials = []
 
-        # Pattern: block GPL-licensed training datasets in production
+        # Pattern: block models with sensitive PII
+        if "sensitivePersonalInformation" in policy_text:
+            pii = input_data.get("sensitivePersonalInformation", "")
+            if isinstance(pii, str) and pii.lower() in ("yes", "true", "1"):
+                denials.append("Model contains sensitive personal information")
+
+        # Pattern: require suppliedBy field
+        if "suppliedBy" in policy_text and "not input.suppliedBy" in policy_text:
+            if not input_data.get("suppliedBy"):
+                denials.append("Model SBOM missing required suppliedBy field")
+
+        # Pattern: block GPL-licensed datasets in production
         if "GPL" in policy_text and input_data.get("environment") == "production":
             ai_profile = input_data.get("aiProfile", {})
             datasets = ai_profile.get("trainingDatasets", [])
@@ -129,16 +133,5 @@ class OPAPolicyRunner:
                     denials.append(
                         f"GPL dataset '{ds.get('name', 'unknown')}' blocked in production"
                     )
-
-        # Pattern: block models with sensitive PII
-        if "sensitivePersonalInformation" in policy_text:
-            pii = input_data.get("sensitivePersonalInformation", "")
-            if isinstance(pii, str) and pii.upper() in ("YES", "TRUE", "1"):
-                denials.append("Model contains sensitive personal information — blocked by policy")
-
-        # Pattern: require suppliedBy field
-        if "suppliedBy" in policy_text and "require" in policy_text.lower():
-            if not input_data.get("suppliedBy"):
-                denials.append("Model SBOM missing required suppliedBy field")
 
         return denials

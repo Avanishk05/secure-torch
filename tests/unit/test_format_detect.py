@@ -3,9 +3,9 @@ Unit tests — format_detect.py
 
 Covers all extension mappings and magic byte fallbacks.
 """
+
 from __future__ import annotations
 
-import struct
 import tempfile
 import os
 from pathlib import Path
@@ -19,8 +19,8 @@ from secure_torch.exceptions import FormatError
 
 # ── Extension mapping tests ────────────────────────────────────────────────────
 
-class TestExtensionMapping:
 
+class TestExtensionMapping:
     def test_safetensors_extension(self):
         assert detect_format("model.safetensors") == ModelFormat.SAFETENSORS
 
@@ -60,8 +60,8 @@ class TestExtensionMapping:
 
 # ── Magic byte fallback tests ─────────────────────────────────────────────────
 
-class TestMagicByteFallback:
 
+class TestMagicByteFallback:
     def _write_tmp(self, content: bytes, suffix: str = ".dat") -> Path:
         f = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
         f.write(content)
@@ -102,7 +102,7 @@ class TestMagicByteFallback:
 
     def test_unknown_magic_raises_format_error(self):
         """Unrecognized magic bytes with unknown extension → FormatError."""
-        path = self._write_tmp(b"\xFF\xFF\xFF\xFF" + b"\x00" * 16)
+        path = self._write_tmp(b"\xff\xff\xff\xff" + b"\x00" * 16)
         try:
             with pytest.raises(FormatError):
                 detect_format(path)

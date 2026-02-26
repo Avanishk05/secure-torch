@@ -8,16 +8,15 @@ Covers:
 - All ThreatLevel boundary scores
 - is_blocked() boundary conditions
 """
+
 from __future__ import annotations
 
-import pytest
 
 from secure_torch.threat_score import ThreatScorer
 from secure_torch.models import ThreatLevel
 
 
 class TestThreatScorerExtras:
-
     def test_add_with_finding_false_goes_to_warnings(self):
         """add(..., finding=False) must NOT add to findings list."""
         scorer = ThreatScorer()
@@ -112,7 +111,6 @@ class TestThreatLevelBoundaries:
 
 
 class TestIsBlockedBoundaries:
-
     def test_exactly_at_max_not_blocked(self):
         scorer = ThreatScorer()
         scorer.add("risk", 40)

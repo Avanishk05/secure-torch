@@ -20,15 +20,16 @@ def make_pickle_payload(module: str, func: str, args: list) -> bytes:
     class _Exploit:
         def __reduce__(self):
             import importlib
+
             m = importlib.import_module(module)
             return getattr(m, func), tuple(args)
+
     buf = io.BytesIO()
     pickle.dump(_Exploit(), buf)
     return buf.getvalue()
 
 
 class TestCVERegressions:
-
     def test_cve_2023_44271_pickle_rce_blocked(self):
         """
         CVE-2023-44271 — PyTorch model RCE (Salesforce).
@@ -116,8 +117,9 @@ class TestCVERegressions:
             scorer = ThreatScorer()
             validate_onnx(tmp_path, scorer)
             assert scorer.total > 0, "Expected score > 0 for custom op domain"
-            assert any("custom_op" in k for k in scorer.breakdown), \
+            assert any("custom_op" in k for k in scorer.breakdown), (
                 f"Expected custom_op in breakdown: {scorer.breakdown}"
+            )
         finally:
             os.unlink(tmp_path)
 

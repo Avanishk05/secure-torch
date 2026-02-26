@@ -10,6 +10,7 @@ Covers:
 - External data absolute/relative paths
 - onnx not installed: graceful warning
 """
+
 from __future__ import annotations
 
 import os
@@ -23,29 +24,35 @@ from secure_torch.threat_score import ThreatScorer
 
 def _onnx_available():
     try:
-        import onnx
+        __import__("onnx")
         return True
     except ImportError:
         return False
 
 
-def make_onnx_model(custom_opset_domain: str = None, custom_node_domain: str = None,
-                    nested_graph: bool = False, metadata: dict = None,
-                    external_data_path: str = None):
+def make_onnx_model(
+    custom_opset_domain: str = None,
+    custom_node_domain: str = None,
+    nested_graph: bool = False,
+    metadata: dict = None,
+    external_data_path: str = None,
+):
     """Build a minimal ONNX model with optional dangerous attributes."""
-    from onnx import helper, TensorProto, AttributeProto
+    from onnx import helper, TensorProto
 
     nodes = []
     if custom_node_domain:
-        node = helper.make_node("CustomOp", inputs=[], outputs=["Y"],
-                                domain=custom_node_domain)
+        node = helper.make_node("CustomOp", inputs=[], outputs=["Y"], domain=custom_node_domain)
         nodes.append(node)
 
     if nested_graph:
         sub_node = helper.make_node("Identity", inputs=["X"], outputs=["Y"])
-        sub_graph = helper.make_graph([sub_node], "subgraph",
-                                       [helper.make_tensor_value_info("X", TensorProto.FLOAT, [1])],
-                                       [helper.make_tensor_value_info("Y", TensorProto.FLOAT, [1])])
+        sub_graph = helper.make_graph(
+            [sub_node],
+            "subgraph",
+            [helper.make_tensor_value_info("X", TensorProto.FLOAT, [1])],
+            [helper.make_tensor_value_info("Y", TensorProto.FLOAT, [1])],
+        )
         nested_attr = helper.make_attribute("body", sub_graph)
         loop_node = helper.make_node("Loop", inputs=[], outputs=["out"])
         loop_node.attribute.append(nested_attr)
@@ -78,7 +85,6 @@ def make_onnx_model(custom_opset_domain: str = None, custom_node_domain: str = N
 
 
 def write_onnx(model) -> Path:
-    from onnx import serialization
     f = tempfile.NamedTemporaryFile(suffix=".onnx", delete=False)
     f.write(model.SerializeToString())
     f.close()
@@ -87,10 +93,10 @@ def write_onnx(model) -> Path:
 
 @pytest.mark.skipif(not _onnx_available(), reason="onnx not installed")
 class TestOnnxOpsets:
-
     def test_standard_onnx_opset_no_score(self):
         """Standard onnx opset must produce zero score."""
         from secure_torch.formats.onnx_loader import validate_onnx
+
         model = make_onnx_model()
         path = write_onnx(model)
         try:
@@ -103,6 +109,7 @@ class TestOnnxOpsets:
     def test_custom_opset_domain_scored(self):
         """Custom opset domain must add to threat score."""
         from secure_torch.formats.onnx_loader import validate_onnx
+
         model = make_onnx_model(custom_opset_domain="com.evil.custom")
         path = write_onnx(model)
         try:
@@ -116,6 +123,7 @@ class TestOnnxOpsets:
     def test_microsoft_opset_no_score(self):
         """com.microsoft is an allowed domain — must not score."""
         from secure_torch.formats.onnx_loader import validate_onnx
+
         model = make_onnx_model(custom_opset_domain="com.microsoft")
         path = write_onnx(model)
         try:
@@ -128,10 +136,10 @@ class TestOnnxOpsets:
 
 @pytest.mark.skipif(not _onnx_available(), reason="onnx not installed")
 class TestOnnxGraphNodes:
-
     def test_custom_op_node_scored(self):
         """A graph node with a custom domain must be scored."""
         from secure_torch.formats.onnx_loader import validate_onnx
+
         model = make_onnx_model(custom_node_domain="com.attacker")
         path = write_onnx(model)
         try:
@@ -144,6 +152,7 @@ class TestOnnxGraphNodes:
     def test_nested_graph_attribute_scored(self):
         """A GRAPH-type attribute (nested subgraph) must add to score."""
         from secure_torch.formats.onnx_loader import validate_onnx
+
         model = make_onnx_model(nested_graph=True)
         path = write_onnx(model)
         try:
@@ -157,10 +166,10 @@ class TestOnnxGraphNodes:
 
 @pytest.mark.skipif(not _onnx_available(), reason="onnx not installed")
 class TestOnnxMetadata:
-
     def test_code_in_metadata_eval_scored(self):
         """eval( in metadata_props must score high."""
         from secure_torch.formats.onnx_loader import validate_onnx
+
         model = make_onnx_model(metadata={"prompt": "eval(os.system('id'))"})
         path = write_onnx(model)
         try:
@@ -173,6 +182,7 @@ class TestOnnxMetadata:
     def test_clean_metadata_no_score(self):
         """Clean metadata must produce zero score."""
         from secure_torch.formats.onnx_loader import validate_onnx
+
         model = make_onnx_model(metadata={"description": "A perfectly safe model"})
         path = write_onnx(model)
         try:
@@ -185,10 +195,10 @@ class TestOnnxMetadata:
 
 @pytest.mark.skipif(not _onnx_available(), reason="onnx not installed")
 class TestOnnxExternalData:
-
     def test_absolute_external_data_path_scored(self):
         """Absolute path in external data must be flagged."""
         from secure_torch.formats.onnx_loader import validate_onnx
+
         model = make_onnx_model(external_data_path="/etc/passwd")
         path = write_onnx(model)
         try:
@@ -201,6 +211,7 @@ class TestOnnxExternalData:
     def test_dotdot_external_data_path_scored(self):
         """Path traversal (../secret) in external data must be flagged."""
         from secure_torch.formats.onnx_loader import validate_onnx
+
         model = make_onnx_model(external_data_path="../../../etc/shadow")
         path = write_onnx(model)
         try:
@@ -213,6 +224,7 @@ class TestOnnxExternalData:
     def test_relative_external_data_path_warns_only(self):
         """A normal relative external data path should warn but not score."""
         from secure_torch.formats.onnx_loader import validate_onnx
+
         model = make_onnx_model(external_data_path="model_weights.bin")
         path = write_onnx(model)
         try:
@@ -226,10 +238,10 @@ class TestOnnxExternalData:
 
 
 class TestOnnxNotInstalled:
-
     def test_onnx_not_installed_warns_gracefully(self, monkeypatch):
         """When onnx is not installed, validate_onnx must warn, not raise."""
         import builtins
+
         real_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
@@ -245,6 +257,7 @@ class TestOnnxNotInstalled:
         path = Path(f.name)
         try:
             from secure_torch.formats import onnx_loader
+
             scorer = ThreatScorer()
             onnx_loader.validate_onnx(path, scorer)
             assert len(scorer.warnings) > 0

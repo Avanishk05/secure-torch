@@ -22,8 +22,8 @@ _EXT_MAP: dict[str, ModelFormat] = {
 }
 
 # Magic bytes for fallback detection
-_MAGIC_ONNX = b"\x08"          # protobuf field 1, varint
-_MAGIC_ZIP = b"PK\x03\x04"    # PyTorch .pt files are ZIP archives
+_MAGIC_ONNX = b"\x08"  # protobuf field 1, varint
+_MAGIC_ZIP = b"PK\x03\x04"  # PyTorch .pt files are ZIP archives
 _MAGIC_PICKLE_PROTO = b"\x80"  # pickle protocol opcode
 
 
@@ -54,13 +54,17 @@ def detect_format(path: Union[str, Path]) -> ModelFormat:
 
         if header[:4] == _MAGIC_ZIP:
             return ModelFormat.PICKLE  # PyTorch saves as ZIP
-        if header[:1] == _MAGIC_PICKLE_PROTO and header[1:2] in (b"\x02", b"\x03", b"\x04", b"\x05"):
+        if header[:1] == _MAGIC_PICKLE_PROTO and header[1:2] in (
+            b"\x02",
+            b"\x03",
+            b"\x04",
+            b"\x05",
+        ):
             return ModelFormat.PICKLE
         # ONNX protobuf: starts with field tag for model_version
         if header[:2] in (b"\x08\x00", b"\x08\x01", b"\x08\x02", b"\x0a"):
             return ModelFormat.ONNX
 
     raise FormatError(
-        f"Cannot determine format for '{path}'. "
-        f"Supported extensions: {', '.join(_EXT_MAP.keys())}"
+        f"Cannot determine format for '{path}'. Supported extensions: {', '.join(_EXT_MAP.keys())}"
     )

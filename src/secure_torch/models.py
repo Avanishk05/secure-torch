@@ -62,9 +62,9 @@ class ValidationReport:
     format: ModelFormat
     threat_level: ThreatLevel
     threat_score: int
-    score_breakdown: dict[str, int]       # explainable: {"unsigned_model": 40, ...}
-    findings: list[str]                   # blocking issues
-    warnings: list[str]                   # non-blocking advisories
+    score_breakdown: dict[str, int]  # explainable: {"unsigned_model": 40, ...}
+    findings: list[str]  # blocking issues
+    warnings: list[str]  # non-blocking advisories
     sha256: str
     size_bytes: int
     load_allowed: bool
@@ -97,7 +97,9 @@ class ValidationReport:
                 lines.append(f"  [WARN]  {w}")
         if self.provenance:
             prov = self.provenance
-            lines.append(f"Provenance:   {'✓ verified' if prov.verified else '✗ unverified'} ({prov.mode})")
+            lines.append(
+                f"Provenance:   {'✓ verified' if prov.verified else '✗ unverified'} ({prov.mode})"
+            )
             if prov.signer:
                 lines.append(f"  Signer: {prov.signer}")
         return "\n".join(lines)

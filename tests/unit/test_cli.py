@@ -9,23 +9,23 @@ Covers:
 - _print_rich_report() renders without crashing (rich available)
 - _print_rich_report() fallback when rich is not installed
 """
+
 from __future__ import annotations
 
 import json
 import os
 import struct
-import sys
 import tempfile
-from io import StringIO
 from pathlib import Path
-from unittest.mock import patch
 
-import pytest
 
-import secure_torch as st
 from secure_torch.cli import _report_to_dict, _print_rich_report, main
 from secure_torch.models import (
-    ModelFormat, ThreatLevel, ValidationReport, ProvenanceRecord, SBOMRecord
+    ModelFormat,
+    ThreatLevel,
+    ValidationReport,
+    ProvenanceRecord,
+    SBOMRecord,
 )
 
 
@@ -59,8 +59,8 @@ def make_dummy_report(provenance=None, sbom=None) -> ValidationReport:
 
 # ── main() tests ──────────────────────────────────────────────────────────────
 
-class TestCliMain:
 
+class TestCliMain:
     def test_audit_valid_file_exits_zero(self):
         path = make_safetensors_file()
         try:
@@ -101,14 +101,24 @@ class TestCliMain:
 
 # ── _report_to_dict() tests ────────────────────────────────────────────────────
 
-class TestReportToDict:
 
+class TestReportToDict:
     def test_all_base_keys_present(self):
         report = make_dummy_report()
         d = _report_to_dict(report)
-        for key in ["path", "format", "threat_level", "threat_score",
-                    "score_breakdown", "findings", "warnings", "sha256",
-                    "size_bytes", "load_allowed", "sandbox_active"]:
+        for key in [
+            "path",
+            "format",
+            "threat_level",
+            "threat_score",
+            "score_breakdown",
+            "findings",
+            "warnings",
+            "sha256",
+            "size_bytes",
+            "load_allowed",
+            "sandbox_active",
+        ]:
             assert key in d, f"Missing key: {key}"
 
     def test_threat_level_is_string(self):
@@ -122,9 +132,13 @@ class TestReportToDict:
         assert isinstance(d["format"], str)
 
     def test_provenance_included_when_present(self):
-        prov = ProvenanceRecord(verified=True, signer="org@example.com",
-                                issuer="https://accounts.google.com",
-                                bundle_path="/tmp/model.sig", mode="pubkey")
+        prov = ProvenanceRecord(
+            verified=True,
+            signer="org@example.com",
+            issuer="https://accounts.google.com",
+            bundle_path="/tmp/model.sig",
+            mode="pubkey",
+        )
         report = make_dummy_report(provenance=prov)
         d = _report_to_dict(report)
         assert "provenance" in d
@@ -132,9 +146,14 @@ class TestReportToDict:
         assert d["provenance"]["signer"] == "org@example.com"
 
     def test_sbom_included_when_present(self):
-        sbom = SBOMRecord(spdx_version="SPDX-2.3", name="my-model",
-                          supplied_by="Acme", model_type="LLM",
-                          sensitive_pii="no", training_info="wiki")
+        sbom = SBOMRecord(
+            spdx_version="SPDX-2.3",
+            name="my-model",
+            supplied_by="Acme",
+            model_type="LLM",
+            sensitive_pii="no",
+            training_info="wiki",
+        )
         report = make_dummy_report(sbom=sbom)
         d = _report_to_dict(report)
         assert "sbom" in d
@@ -155,8 +174,8 @@ class TestReportToDict:
 
 # ── _print_rich_report() tests ─────────────────────────────────────────────────
 
-class TestPrintRichReport:
 
+class TestPrintRichReport:
     def test_rich_report_does_not_crash(self, capsys):
         """_print_rich_report must render without raising under any condition."""
         report = make_dummy_report()
@@ -164,17 +183,23 @@ class TestPrintRichReport:
 
     def test_rich_report_with_sbom_and_provenance_no_crash(self):
         """Full report with all optional fields must not crash."""
-        prov = ProvenanceRecord(verified=True, signer="signer@test.com",
-                                issuer="https://issuer.example.com",
-                                bundle_path="/tmp/model.sigstore", mode="sigstore")
-        sbom = SBOMRecord(name="my-model", supplied_by="Acme",
-                          sensitive_pii="no", training_info="wiki")
+        prov = ProvenanceRecord(
+            verified=True,
+            signer="signer@test.com",
+            issuer="https://issuer.example.com",
+            bundle_path="/tmp/model.sigstore",
+            mode="sigstore",
+        )
+        sbom = SBOMRecord(
+            name="my-model", supplied_by="Acme", sensitive_pii="no", training_info="wiki"
+        )
         report = make_dummy_report(provenance=prov, sbom=sbom)
         _print_rich_report(report)  # must not raise
 
     def test_rich_fallback_when_not_installed(self, monkeypatch, capsys):
         """When rich is not installed, must fall back to report.summary()."""
         import builtins
+
         real_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):

@@ -8,40 +8,41 @@ Direct unit tests for parse_sbom():
 - aiProfile.trainingDatasets parsed
 - sensitivePersonalInformation mapped
 """
+
 from __future__ import annotations
 
 import json
 import os
 import tempfile
 
-import pytest
 
 from secure_torch.sbom.spdx_parser import parse_sbom
-from secure_torch.models import SBOMRecord
 
 
 def write_spdx(data: dict) -> str:
-    f = tempfile.NamedTemporaryFile(mode="w", suffix=".spdx.json",
-                                    delete=False, encoding="utf-8")
+    f = tempfile.NamedTemporaryFile(mode="w", suffix=".spdx.json", delete=False, encoding="utf-8")
     json.dump(data, f)
     f.close()
     return f.name
 
 
 class TestSpdxParser:
-
     def test_full_spdx_parsed_correctly(self):
         """All standard SPDX fields must map to SBOMRecord."""
-        path = write_spdx({
-            "spdxVersion": "SPDX-2.3",
-            "name": "my-model",
-            "packages": [{
-                "suppliedBy": "ai-labs.example.com",
-                "typeOfModel": "LLM",
-                "sensitivePersonalInformation": "no",
-                "informationAboutTraining": "Wikipedia, CC0 datasets",
-            }]
-        })
+        path = write_spdx(
+            {
+                "spdxVersion": "SPDX-2.3",
+                "name": "my-model",
+                "packages": [
+                    {
+                        "suppliedBy": "ai-labs.example.com",
+                        "typeOfModel": "LLM",
+                        "sensitivePersonalInformation": "no",
+                        "informationAboutTraining": "Wikipedia, CC0 datasets",
+                    }
+                ],
+            }
+        )
         try:
             record = parse_sbom(path)
             assert record is not None
@@ -75,8 +76,9 @@ class TestSpdxParser:
 
     def test_malformed_json_returns_none(self):
         """Malformed JSON must return None, not raise."""
-        f = tempfile.NamedTemporaryFile(mode="w", suffix=".spdx.json",
-                                        delete=False, encoding="utf-8")
+        f = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".spdx.json", delete=False, encoding="utf-8"
+        )
         f.write("{ this is not: valid json }")
         f.close()
         try:
@@ -91,11 +93,13 @@ class TestSpdxParser:
         assert record is None
 
     def test_sensitive_pii_yes_parsed(self):
-        path = write_spdx({
-            "spdxVersion": "SPDX-2.3",
-            "name": "pii-model",
-            "packages": [{"sensitivePersonalInformation": "yes"}]
-        })
+        path = write_spdx(
+            {
+                "spdxVersion": "SPDX-2.3",
+                "name": "pii-model",
+                "packages": [{"sensitivePersonalInformation": "yes"}],
+            }
+        )
         try:
             record = parse_sbom(path)
             assert record.sensitive_pii == "yes"
@@ -104,18 +108,20 @@ class TestSpdxParser:
 
     def test_ai_profile_training_datasets_parsed(self):
         """SPDX 3.0 aiProfile.trainingDatasets must be captured in training_info."""
-        path = write_spdx({
-            "spdxVersion": "SPDX-3.0",
-            "name": "model",
-            "packages": [],
-            "aiProfile": {
-                "modelType": "NLP",
-                "trainingDatasets": [
-                    {"name": "Wikipedia", "license": "CC0"},
-                    {"name": "Books3", "license": "Unknown"},
-                ]
+        path = write_spdx(
+            {
+                "spdxVersion": "SPDX-3.0",
+                "name": "model",
+                "packages": [],
+                "aiProfile": {
+                    "modelType": "NLP",
+                    "trainingDatasets": [
+                        {"name": "Wikipedia", "license": "CC0"},
+                        {"name": "Books3", "license": "Unknown"},
+                    ],
+                },
             }
-        })
+        )
         try:
             record = parse_sbom(path)
             assert record is not None
@@ -127,11 +133,13 @@ class TestSpdxParser:
 
     def test_originator_fallback_for_supplied_by(self):
         """If suppliedBy is missing, originator should be used as supplied_by."""
-        path = write_spdx({
-            "spdxVersion": "SPDX-2.3",
-            "name": "model",
-            "packages": [{"originator": "Organization: Acme Inc"}]
-        })
+        path = write_spdx(
+            {
+                "spdxVersion": "SPDX-2.3",
+                "name": "model",
+                "packages": [{"originator": "Organization: Acme Inc"}],
+            }
+        )
         try:
             record = parse_sbom(path)
             assert record.supplied_by == "Organization: Acme Inc"
@@ -140,8 +148,11 @@ class TestSpdxParser:
 
     def test_raw_data_preserved(self):
         """The full raw dict must be preserved in SBOMRecord.raw."""
-        data = {"spdxVersion": "SPDX-2.3", "name": "model",
-                "packages": [{"custom_field": "custom_value"}]}
+        data = {
+            "spdxVersion": "SPDX-2.3",
+            "name": "model",
+            "packages": [{"custom_field": "custom_value"}],
+        }
         path = write_spdx(data)
         try:
             record = parse_sbom(path)
