@@ -17,7 +17,9 @@ try:
     from fastapi import FastAPI, HTTPException
     from pydantic import BaseModel
 except ImportError:
-    FastAPI = None
+    FastAPI = None  # type: ignore
+    BaseModel = object  # type: ignore
+    HTTPException = Exception  # type: ignore
 
 
 class ValidationRequest(BaseModel):
