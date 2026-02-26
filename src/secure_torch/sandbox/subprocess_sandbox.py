@@ -69,6 +69,7 @@ def main():
     fmt = task["fmt"]
     output_path = task["output_path"]
     weights_only = task.get("weights_only", True)
+    kwargs = task.get("kwargs", {})
 
     if sys.platform == "linux":
         try:
@@ -81,7 +82,7 @@ def main():
         if fmt == "safetensors":
             import safetensors.torch as st
 
-            tensors = st.load_file(model_path)
+            tensors = st.load_file(model_path, **kwargs)
             _persist_tensor_dict(tensors, output_path)
             _emit({"ok": True, "transfer": "safetensors", "path": output_path})
             return
@@ -89,7 +90,7 @@ def main():
         if fmt == "pickle":
             import torch
 
-            result = torch.load(model_path, map_location="cpu", weights_only=weights_only)
+            result = torch.load(model_path, map_location="cpu", weights_only=weights_only, **kwargs)
             tensors = _extract_tensor_dict(result)
             if tensors is None:
                 _emit(
@@ -109,7 +110,7 @@ def main():
         if fmt == "onnx":
             import onnx
 
-            model = onnx.load(model_path)
+            model = onnx.load(model_path, **kwargs)
             with open(output_path, "wb") as fh:
                 fh.write(model.SerializeToString())
             _emit({"ok": True, "transfer": "onnx", "path": output_path})
@@ -136,8 +137,17 @@ class SubprocessSandbox:
         fmt: ModelFormat,
         map_location=None,
         weights_only: bool = True,
+        **kwargs,
     ) -> Any:
         del map_location  # sandbox always loads to CPU inside the subprocess
+
+        serializable_kwargs = {}
+        for k, v in kwargs.items():
+            try:
+                json.dumps(v)
+                serializable_kwargs[k] = v
+            except (TypeError, ValueError):
+                logger.warning(f"Sandbox cannot forward non-JSON-serializable kwarg: {k}")
 
         transfer_suffix = ".onnx" if fmt == ModelFormat.ONNX else ".safetensors"
         transfer_file = tempfile.NamedTemporaryFile(suffix=transfer_suffix, delete=False)
@@ -150,6 +160,7 @@ class SubprocessSandbox:
                 "fmt": fmt.value,
                 "weights_only": weights_only,
                 "output_path": str(output_path),
+                "kwargs": serializable_kwargs,
             }
         )
 

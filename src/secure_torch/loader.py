@@ -187,6 +187,7 @@ def secure_load(
             fmt,
             map_location=map_location,
             weights_only=weights_only,
+            **kwargs,
         )
     else:
         model = _direct_load(
@@ -364,12 +365,13 @@ def _direct_load(
         import torch
 
         if _jit_mode:
-            return torch.jit.load(f, map_location=map_location)
+            return torch.jit.load(f, map_location=map_location, **kwargs)
 
         return torch.load(  # nosec B614 -- weights_only= is set; secure_torch has already validated opcodes
             f,
             map_location=map_location,
             weights_only=weights_only,
+            **kwargs,
         )
 
     if fmt == ModelFormat.ONNX:
@@ -385,6 +387,7 @@ def _sandbox_load(
     fmt: ModelFormat,
     map_location=None,
     weights_only: bool = True,
+    **kwargs,
 ) -> Any:
 
     from secure_torch.sandbox.subprocess_sandbox import SubprocessSandbox
@@ -396,6 +399,7 @@ def _sandbox_load(
         fmt,
         map_location=map_location,
         weights_only=weights_only,
+        **kwargs,
     )
 
 
