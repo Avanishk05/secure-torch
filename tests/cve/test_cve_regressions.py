@@ -44,19 +44,7 @@ class TestCVERegressions:
         with pytest.raises(UnsafePickleError):
             validate_pickle(payload, scorer)
 
-    def test_cve_2023_32686_keras_lambda_rce_blocked(self):
-        """
-        CVE-2023-32686 — Keras Lambda RCE via pickle.
-        Malicious pickle calling subprocess must be blocked.
-        """
-        from secure_torch.formats.pickle_safe import validate_pickle
-        from secure_torch.exceptions import UnsafePickleError
-        from secure_torch.threat_score import ThreatScorer
 
-        payload = make_pickle_payload("subprocess", "check_output", [["id"]])
-        scorer = ThreatScorer()
-        with pytest.raises(UnsafePickleError):
-            validate_pickle(payload, scorer)
 
     def test_safetensors_metadata_injection_scored(self):
         """

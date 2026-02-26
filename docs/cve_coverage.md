@@ -7,7 +7,6 @@ secure-torch includes regression tests for known ML loader CVEs. All tests run o
 | CVE / Advisory | Affected Library | Attack | secure-torch Response |
 |---|---|---|---|
 | **CVE-2023-44271** | PyTorch | Pickle RCE via `torch.load` (Salesforce model) | ✅ **Blocked** — `STACK_GLOBAL` opcode with `nt.system` detected and raised |
-| **CVE-2023-32686** | Keras | Lambda layer RCE via pickle | ✅ **Blocked** — `subprocess` module reference detected |
 | **GHSA-v9fq-2296** | HuggingFace Hub | Pickle injection via safetensors `__metadata__` | ✅ **Scored** — code-like strings in metadata add 50+ to threat score |
 | **CVE-2024-5980** | NVIDIA Triton | ONNX custom op RCE | ✅ **Scored** — custom operator domains flagged with 30 score |
 

@@ -122,7 +122,7 @@ secure_torch.unpatch_huggingface()
 ```
 
 `patch_huggingface(...)` hooks `huggingface_hub.file_download.hf_hub_download`.
-For model-like files (`.pt`, `.pth`, `.bin`, `.safetensors`, `.onnx`, `.h5`, `.keras`),
+For model-like files (`.pt`, `.pth`, `.bin`, `.safetensors`, `.onnx`),
 secure-torch runs format detection, validators, signature/publisher checks, and threat policy
 evaluation before returning the downloaded file path. Unsafe artifacts are blocked with
 `UnsafeModelError`.
@@ -259,7 +259,6 @@ torch.load("model.pt", require_signature=True, pubkey_path="public.pem", bundle_
 | CVE | Attack | Status |
 |---|---|---|
 | CVE-2023-44271 | PyTorch pickle RCE (Salesforce) | ✅ Blocked |
-| CVE-2023-32686 | Keras Lambda RCE | ✅ Blocked |
 | GHSA-v9fq-2296 | HuggingFace metadata injection | ✅ Scored |
 | CVE-2024-5980 | NVIDIA Triton ONNX custom op RCE | ✅ Scored |
 

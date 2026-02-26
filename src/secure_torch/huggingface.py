@@ -20,7 +20,7 @@ _ORIGINAL_HF_HUB_DOWNLOAD: Callable | None = None
 _PATCHED = False
 
 # Known extensions for model weights
-_MODEL_EXTENSIONS = {".pt", ".pth", ".bin", ".safetensors", ".onnx", ".h5", ".keras"}
+_MODEL_EXTENSIONS = {".pt", ".pth", ".bin", ".safetensors", ".onnx"}
 
 
 def _is_model_file(filename: str) -> bool:
