@@ -12,7 +12,7 @@ Fixed pipeline order:
 
 from __future__ import annotations
 
-import hashlib
+import logging
 from pathlib import Path
 from typing import Any, Optional, Union, IO
 
@@ -22,20 +22,51 @@ from secure_torch.models import ModelFormat, ProvenanceRecord, SBOMRecord, Valid
 from secure_torch.threat_score import (
     SCORE_PROVENANCE_UNVERIFIABLE,
     SCORE_SBOM_MISSING,
+    SCORE_SBOM_POLICY_DENIAL,
     SCORE_UNSIGNED_MODEL,
+    SCORE_UNTRUSTED_PUBLISHER,
     ThreatScorer,
 )
+
+logger = logging.getLogger(__name__)
 
 PathLike = Union[str, Path]
 
 
-def _sha256(path: Path) -> str:
-    """Compute SHA256 hash of file."""
-    h = hashlib.sha256()
-    with path.open("rb") as f:
-        for chunk in iter(lambda: f.read(65536), b""):
-            h.update(chunk)
-    return h.hexdigest()
+def scan_file(
+    path: Union[str, Path],
+    *,
+    require_signature: bool = False,
+    trusted_publishers: Optional[list[str]] = None,
+    max_threat_score: int = 20,
+    sbom_path: Optional[str] = None,
+    sbom_policy_path: Optional[str] = None,
+    policy_context: Optional[dict[str, Any]] = None,
+    bundle_path: Optional[str] = None,
+    pubkey_path: Optional[str] = None,
+) -> ValidationReport:
+    """Validate a model file without loading it into memory.
+
+    Runs the full security pipeline (format detection, signature verification,
+    threat scoring, policy enforcement) and returns a ``ValidationReport``.
+    The model is never loaded — safe for untrusted files.
+    """
+    result = secure_load(
+        path,
+        require_signature=require_signature,
+        trusted_publishers=trusted_publishers,
+        audit_only=True,
+        max_threat_score=max_threat_score,
+        sandbox=False,
+        sbom_path=sbom_path,
+        sbom_policy_path=sbom_policy_path,
+        policy_context=policy_context,
+        bundle_path=bundle_path,
+        pubkey_path=pubkey_path,
+    )
+    # secure_load returns (model, report) when audit_only=True
+    _, report = result
+    return report
 
 
 def secure_load(
@@ -66,7 +97,6 @@ def secure_load(
     if path is not None:
         _path: Path = path  # narrowed, non-Optional for use below
         fmt: ModelFormat = detect_format(_path)
-        sha: str = _sha256(_path)
         size: int = _path.stat().st_size
 
         # Signature bundle auto-detect
@@ -89,7 +119,6 @@ def secure_load(
 
     else:
         fmt = ModelFormat.PICKLE
-        sha = "unknown"
         size = 0
 
     scorer = ThreatScorer()
@@ -121,6 +150,7 @@ def secure_load(
         trusted_publishers=trusted_publishers,
         scorer=scorer,
         audit_only=audit_only,
+        require_signature=require_signature,
     )
 
     load_allowed: bool = not scorer.is_blocked(max_threat_score)
@@ -133,7 +163,6 @@ def secure_load(
         score_breakdown=scorer.breakdown,
         findings=scorer.findings,
         warnings=scorer.warnings,
-        sha256=sha,
         size_bytes=size,
         load_allowed=load_allowed or audit_only,
         sandbox_active=sandbox,
@@ -262,7 +291,7 @@ def _evaluate_sbom_policy(
     )
 
     for i, denial in enumerate(denials):
-        scorer.add(f"sbom_policy_denial:{i}", 30)
+        scorer.add(f"sbom_policy_denial:{i}", SCORE_SBOM_POLICY_DENIAL)
         scorer.warn(denial)
 
     if denials and not audit_only:
@@ -276,14 +305,22 @@ def _enforce_policy(
     trusted_publishers: Optional[list[str]],
     scorer: ThreatScorer,
     audit_only: bool,
+    require_signature: bool = False,
 ) -> None:
 
     if not trusted_publishers:
         return
 
     if provenance and provenance.signer:
-        if not any(pub in provenance.signer for pub in trusted_publishers):
-            scorer.add("untrusted_publisher", 20)
+        from secure_torch.policy.trust_policy import _publisher_matches
+
+        if not any(_publisher_matches(provenance.signer, pub) for pub in trusted_publishers):
+            scorer.add("untrusted_publisher", SCORE_UNTRUSTED_PUBLISHER)
+
+    if not audit_only:
+        from secure_torch.policy.trust_policy import enforce_publisher_policy
+
+        enforce_publisher_policy(provenance, trusted_publishers, require_signature)
 
 
 def _direct_load(

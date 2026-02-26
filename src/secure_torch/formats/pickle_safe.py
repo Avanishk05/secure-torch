@@ -11,6 +11,7 @@ Correct terminology: "opcode validator", not "AST walker"
 from __future__ import annotations
 
 import io
+import logging
 import pickletools
 from typing import Optional
 
@@ -21,6 +22,8 @@ from secure_torch.threat_score import (
     SCORE_PICKLE_REDUCE_OPCODE,
     SCORE_PICKLE_INST_OPCODE,
 )
+
+logger = logging.getLogger(__name__)
 
 SAFE_MODULES: frozenset[str] = frozenset(
     {
@@ -66,6 +69,21 @@ DANGEROUS_MODULES: frozenset[str] = frozenset(
     }
 )
 
+# Suspicious callable names that warrant higher scoring even in safe modules
+DANGEROUS_CALLABLES: frozenset[str] = frozenset(
+    {
+        "apply",
+        "exec",
+        "eval",
+        "system",
+        "popen",
+        "call",
+        "check_output",
+        "Popen",
+        "run",
+    }
+)
+
 
 def validate_pickle(data: bytes, scorer: ThreatScorer) -> None:
     if not data:
@@ -82,6 +100,7 @@ def _walk_opcodes(data: bytes, scorer: ThreatScorer) -> None:
 
     stream = io.BytesIO(data)
     last_global: Optional[str] = None
+    last_func: Optional[str] = None
     string_stack: list[str] = []
 
     for opcode, arg, pos in pickletools.genops(stream):
@@ -99,6 +118,7 @@ def _walk_opcodes(data: bytes, scorer: ThreatScorer) -> None:
             func = parts[1] if len(parts) > 1 else ""
 
             last_global = module
+            last_func = func
 
             _check_module_ref(module, pos, scorer)
 
@@ -114,6 +134,7 @@ def _walk_opcodes(data: bytes, scorer: ThreatScorer) -> None:
                 func = ""
 
             last_global = module
+            last_func = func
 
             _check_module_ref(module, pos, scorer)
 
@@ -126,6 +147,9 @@ def _walk_opcodes(data: bytes, scorer: ThreatScorer) -> None:
                     f"pickle_reduce_opcode:{last_global}",
                     SCORE_PICKLE_REDUCE_OPCODE,
                 )
+            # Also check if the function name itself is suspicious
+            if last_func and last_func in DANGEROUS_CALLABLES:
+                raise UnsafePickleError(f"Dangerous callable '{last_func}' in REDUCE at {pos}")
 
         elif name == "INST":
             module = str(arg) if arg else ""
