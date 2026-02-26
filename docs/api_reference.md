@@ -12,10 +12,13 @@ secure_torch.load(
     max_threat_score: int = 20,
     sandbox: bool = False,
     sbom_path: str | None = None,
+    sbom_policy_path: str | None = None,
+    policy_context: dict | None = None,
     bundle_path: str | None = None,
     pubkey_path: str | None = None,
     map_location=None,
     weights_only: bool = True,
+    **kwargs,
 ) -> Any | tuple[Any, ValidationReport]
 ```
 
@@ -29,10 +32,14 @@ secure_torch.load(
 | `audit_only` | `bool` | `False` | Load regardless of score; return `(model, report)` |
 | `max_threat_score` | `int` | `20` | Block if total score exceeds this |
 | `sandbox` | `bool` | `False` | Load in restricted subprocess |
+| `sbom_path` | `str` | `None` | Path to SBOM `.spdx.json` file |
+| `sbom_policy_path` | `str` | `None` | Path to OPA `.rego` file |
+| `policy_context` | `dict` | `None` | Context variable dictionary for Rego |
 | `bundle_path` | `str` | `None` | Path to `.sigstore` or `.sig` file |
 | `pubkey_path` | `str` | `None` | Path to PEM public key (offline mode) |
 | `map_location` | — | `None` | Passed to `torch.load` |
 | `weights_only` | `bool` | `True` | Passed to `torch.load` |
+| `**kwargs` | — | — | Passed to `torch.load` |
 
 **Returns:** Model object, or `(model, ValidationReport)` if `audit_only=True`.
 
@@ -133,16 +140,17 @@ Restores the original `huggingface_hub.file_download.hf_hub_download`.
 class ValidationReport:
     path: str
     format: ModelFormat
-    threat_score: int
     threat_level: ThreatLevel
+    threat_score: int
     score_breakdown: dict[str, int]
     findings: list[str]
     warnings: list[str]
-    sha256: str
     size_bytes: int
     load_allowed: bool
     sandbox_active: bool
-    provenance: ProvenanceRecord | None
+    provenance: ProvenanceRecord | None = None
+    sbom: SBOMRecord | None = None
+    metadata: dict[str, Any] = field(default_factory=dict)
 ```
 
 ---
@@ -156,7 +164,7 @@ class ProvenanceRecord:
     signer: str | None = None
     issuer: str | None = None
     bundle_path: str | None = None
-    mode: str | None = None   # "sigstore" or "pubkey"
+    mode: str = "sigstore"
     error: str | None = None
 ```
 
@@ -165,12 +173,12 @@ class ProvenanceRecord:
 ## `ThreatLevel`
 
 ```python
-class ThreatLevel(Enum):
-    SAFE     = 0
-    LOW      = 1
-    MEDIUM   = 2
-    HIGH     = 3
-    CRITICAL = 4
+class ThreatLevel(str, Enum):
+    SAFE     = "SAFE"
+    LOW      = "LOW"
+    MEDIUM   = "MEDIUM"
+    HIGH     = "HIGH"
+    CRITICAL = "CRITICAL"
 ```
 
 ---
