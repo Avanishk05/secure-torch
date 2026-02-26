@@ -26,7 +26,7 @@
 - **`audit_only=True`** — load regardless of score, return `(model, report)`
 - **Drop-in API** — `import secure_torch as torch`
 - **CVE regression tests** — CVE-2023-44271, CVE-2023-32686, GHSA-v9fq-2296, CVE-2024-5980
-- **GitHub Actions CI** — multi-OS × multi-Python matrix, Trusted Publishing, Sigstore signing
+- **GitHub Actions CI** — multi-OS × multi-Python matrix, Trusted Publishing
 - **Weekly security scan** — Bandit SAST + pip-audit
 
 ### Fixed
